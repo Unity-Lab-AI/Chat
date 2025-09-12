@@ -1003,3 +1003,25 @@ body {
 #past-image-gallery img.thumbnail.selected {
   border: 2px solid #ffcc00;
 }
+
+/* === ESC toggle & focus robustness (override) === */
+
+/* When we focus the container in JS so ESC is captured, don't show a focus ring */
+#screensaver-container:focus { outline: none; }
+
+/* Hide the control panel: panel is centered with translateX(-50%), keep that when hiding */
+.screensaver-controls.hidden-panel {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateX(-50%) translateY(20px);
+}
+
+/* Hide the thumbnail strip, whether we toggle the wrapper or the strip itself */
+#screensaver-thumbnails-wrapper.hidden-panel,
+#screensaver-thumbnails.hidden-panel,
+.screensaver-thumbnails.hidden-panel {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  /* Avoid sideways jump: only slide down for thumbnail containers */
+  transform: translateY(20px);
+}
