@@ -692,35 +692,34 @@ document.addEventListener("DOMContentLoaded", () => {
         else window.showToast("Start the screensaver first!");
     });
 
-    // --- Robust ESC handling (hosted pages + inputs + fullscreen) ---
-    function handleEscape(e) {
-        const isEscape =
-            e.key === 'Escape' || e.key === 'Esc' || e.code === 'Escape' || e.keyCode === 27;
-        if (!isEscape) return;
-
-        // Only act if the screensaver is actually visible
+    // --- Global keyboard handling: only ESC toggles controls ---
+    function handleKeydown(e) {
         if (!isScreensaverVisible()) return;
 
-        // If an interactive element has focus, blur it so Esc isn't consumed there
         const ae = document.activeElement;
-        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) {
-            ae.blur();
+        const isInput = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
+        const isEscape =
+            e.key === 'Escape' || e.key === 'Esc' || e.code === 'Escape' || e.keyCode === 27;
+
+        if (isEscape) {
+            if (isInput) ae.blur();
+            try { e.preventDefault(); } catch {}
+            try { e.stopImmediatePropagation(); } catch {}
+            try { e.stopPropagation(); } catch {}
+            if (hideButton) hideButton.click();
+        } else if (!isInput) {
+            try { e.preventDefault(); } catch {}
+            try { e.stopImmediatePropagation(); } catch {}
+            try { e.stopPropagation(); } catch {}
         }
-
-        // Prevent browser-level behavior (when allowed) and stop others from swallowing it
-        try { e.preventDefault(); } catch {}
-        try { e.stopImmediatePropagation(); } catch {}
-        try { e.stopPropagation(); } catch {}
-
-        if (hideButton) hideButton.click();
     }
 
-    // Capture-phase listeners so we see Esc before other handlers/UI components
-    document.addEventListener('keydown', handleEscape, { capture: true });
-    window.addEventListener('keydown', handleEscape, { capture: true });
+    // Capture-phase listeners so we intercept keys before other handlers/UI components
+    document.addEventListener('keydown', handleKeydown, { capture: true });
+    window.addEventListener('keydown', handleKeydown, { capture: true });
     // Also bind directly to the container (helps when it has focus)
     if (screensaverContainer) {
-        screensaverContainer.addEventListener('keydown', handleEscape, { capture: true });
+        screensaverContainer.addEventListener('keydown', handleKeydown, { capture: true });
     }
 
     // Optional: if user exits fullscreen via Esc, keep behavior sane
