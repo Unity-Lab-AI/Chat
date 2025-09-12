@@ -972,6 +972,7 @@ body {
   padding: 8px;
   border-top: 2px solid #505050;
   z-index: 50;
+  pointer-events: none;
 }
 
 #past-image-gallery {
@@ -980,6 +981,7 @@ body {
   gap: 10px;
   overflow-x: auto;
   scrollbar-width: thin;
+  pointer-events: auto;
 }
 
 #past-image-gallery img.thumbnail {
