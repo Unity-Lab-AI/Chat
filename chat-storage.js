@@ -723,7 +723,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (voiceBuffer.trim()) {
                             window.addNewMessage({ role: "user", content: voiceBuffer.trim() });
                             window.sendToPollinations(() => {
-                                startVoiceChatSlideshow();
                                 chatInput.focus();
                             });
                             voiceBuffer = "";
@@ -789,7 +788,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const recognition = window._chatInternals.recognition;
             try {
                 recognition.start();
-                startVoiceChatSlideshow();
             } catch (error) {
                 showToast("Could not start speech recognition: " + error.message);
             }
@@ -797,7 +795,6 @@ document.addEventListener("DOMContentLoaded", () => {
         stopBtn.addEventListener("click", () => {
             if (window._chatInternals.recognition && window._chatInternals.isListening) {
                 window._chatInternals.recognition.stop();
-                stopVoiceChatSlideshow();
                 showToast("Voice recognition stopped");
             }
         });
