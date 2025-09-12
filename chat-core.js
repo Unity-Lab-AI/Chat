@@ -194,7 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return true;
         }
 
-        const clickMatch = message.match(/^(click|press|activate|toggle|open|start|close|stop|pause|resume|play|save|copy|hide|exit|fullscreen) (?:the )?(.+)$/i);
+        const clickMatch = message.match(/^(click|press|activate|toggle|open|start|close|stop|pause|resume|play|save|copy|hide|show|exit|fullscreen) (?:the )?(.+)$/i);
         if (clickMatch) {
             const verb = clickMatch[1].toLowerCase();
             const target = clickMatch[2].trim();
@@ -221,7 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return true;
         }
 
-        const singleMatch = message.match(/^(pause|resume|play|save|copy|hide|exit|fullscreen)$/i);
+        const singleMatch = message.match(/^(pause|resume|play|save|copy|hide|show|exit|fullscreen)$/i);
         if (singleMatch) {
             const verb = singleMatch[1];
             const el = findElement(verb);
