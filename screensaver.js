@@ -705,9 +705,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.key === 'Escape' && screensaverActive && controlsHidden) {
             e.stopPropagation();
             e.preventDefault();
-            const controls = document.querySelector('.screensaver-controls');
-            controls.classList.add('hidden-panel');
-            thumbnailsWrapper.classList.add('hidden-panel');
+            // When the controls are hidden, pressing Escape should unhide them
+            // instead of re-hiding. Leverage the existing toggleControls()
+            // function to restore the normal display state.
+            toggleControls();
         }
     });
 
