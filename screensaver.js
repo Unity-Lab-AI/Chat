@@ -703,7 +703,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try { e.stopImmediatePropagation(); } catch {}
         try { e.stopPropagation(); } catch {}
 
-        toggleControls();
+        if (hideButton) hideButton.click();
     }
 
     // Capture-phase listeners so we see Esc before other handlers/UI components
