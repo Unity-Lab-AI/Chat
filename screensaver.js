@@ -207,7 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: { "Content-Type": "application/json", Accept: "application/json" },
                 cache: "no-store",
                 body: JSON.stringify({
-                    model: textModel || "openai",
+                    model: textModel || "unity",
                     seed,
                     messages: [{ role: "user", content: metaPrompt }]
                 })
@@ -758,5 +758,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     console.log("Screensaver initialized with resilient ESC handling for hosted pages.");
 });
+
 
 
