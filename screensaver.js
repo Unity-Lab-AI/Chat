@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const thumbnailsContainer = document.getElementById("screensaver-thumbnails");
     const thumbLeftButton = document.getElementById("screensaver-thumb-left");
     const thumbRightButton = document.getElementById("screensaver-thumb-right");
+    const btnGroup = document.querySelector(".screensaver-btn-group");
 
     // --- State ---
     let screensaverActive = false;
@@ -455,6 +456,8 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleScreensaverButton.textContent = "Stop Screensaver";
         playPauseButton.innerHTML = "⏸️";
         hideButton.innerHTML = "🙈";
+        hideButton.classList.remove('floating-hide-btn');
+        if (btnGroup) btnGroup.insertBefore(hideButton, saveButton);
         if (restartPromptButton) restartPromptButton.innerHTML = autoPromptEnabled ? "🔄 Auto-Prompt On" : "🔄 Auto-Prompt Off";
 
         if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -479,6 +482,8 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleScreensaverButton.textContent = "Start Screensaver";
         playPauseButton.innerHTML = "▶️";
         hideButton.innerHTML = "🙈";
+        hideButton.classList.remove('floating-hide-btn');
+        if (btnGroup) btnGroup.insertBefore(hideButton, saveButton);
         if (restartPromptButton) restartPromptButton.innerHTML = autoPromptEnabled ? "🔄 Auto-Prompt On" : "🔄 Auto-Prompt Off";
 
         if (isFullscreen) {
@@ -508,10 +513,14 @@ document.addEventListener("DOMContentLoaded", () => {
             controls.classList.add('hidden-panel');
             if (thumbnailsWrapper) thumbnailsWrapper.classList.add('hidden-panel');
             hideButton.innerHTML = "🙉";
+            hideButton.classList.add('floating-hide-btn');
+            screensaverContainer.appendChild(hideButton);
         } else {
             controls.classList.remove('hidden-panel');
             if (thumbnailsWrapper) thumbnailsWrapper.classList.remove('hidden-panel');
             hideButton.innerHTML = "🙈";
+            hideButton.classList.remove('floating-hide-btn');
+            if (btnGroup) btnGroup.insertBefore(hideButton, saveButton);
         }
         window.showToast(controlsHidden ? "Controls hidden" : "Controls visible");
         // keep focus on the container so ESC continues to work

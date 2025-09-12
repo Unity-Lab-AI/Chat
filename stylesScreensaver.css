@@ -187,6 +187,13 @@
   transform: translateY(0);
 }
 
+#screensaver-hide.floating-hide-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10001;
+}
+
 .screensaver canvas {
   position: absolute;
   top: 0;
