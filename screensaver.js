@@ -198,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchDynamicPrompt() {
         const metaPrompt =
-            "Generate exactly one, short-125-character, new fucked up expicit or sexy image prompt of living in the life,  Demented, evil, and psychologically disturbing photograph as a daily life photograph as text only.";
+            "Generate exactly one, short-125-character, new fucked up expicit or sexy image notion,  Demented, evil, and psychologically disturbing setting/event/thing/creature/famous person/trademark-insert as daily life, as text only.";
         const textModel = document.getElementById("model-select")?.value;
         const seed = generateSeed();
         try {
@@ -758,6 +758,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     console.log("Screensaver initialized with resilient ESC handling for hosted pages.");
 });
+
 
 
 
