@@ -349,9 +349,10 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log(`Appending message at index ${idx}: ${msg.role}`);
             const imgRegex = /(https:\/\/image\.pollinations\.ai\/prompt\/[^ ]+)/g;
             const imgMatches = msg.content.match(imgRegex) || [];
-            appendMessage({ 
-                role: msg.role, 
-                content: msg.content, 
+            const contentWithoutImages = msg.content.replace(imgRegex, "").trim();
+            appendMessage({
+                role: msg.role,
+                content: contentWithoutImages,
                 index: idx,
                 imageUrls: imgMatches
             });
@@ -376,9 +377,10 @@ document.addEventListener("DOMContentLoaded", () => {
         Storage.updateSessionMessages(currentSession.id, currentSession.messages);
         const imgRegex = /(https:\/\/image\.pollinations\.ai\/prompt\/[^ ]+)/g;
         const imgMatches = content.match(imgRegex) || [];
-        appendMessage({ 
-            role, 
-            content, 
+        const contentWithoutImages = content.replace(imgRegex, "").trim();
+        appendMessage({
+            role,
+            content: contentWithoutImages,
             index: currentSession.messages.length - 1,
             imageUrls: imgMatches
         });
