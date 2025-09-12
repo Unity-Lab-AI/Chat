@@ -187,13 +187,6 @@
   transform: translateY(0);
 }
 
-#screensaver-hide.floating-hide-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 10001;
-}
-
 .screensaver canvas {
   position: absolute;
   top: 0;
@@ -2201,24 +2194,4 @@ body[data-theme="serenity"] #fullscreen-screensaver {
 body[data-theme="serenity"] #screensaver-playpause:hover,
 body[data-theme="serenity"] #fullscreen-screensaver:hover {
   background: linear-gradient(135deg, #f4a460, #ffd700);
-}
-
-/* === ESC toggle & focus robustness (override) === */
-#screensaver-container { outline: none; }
-#screensaver-container:focus { outline: none; }
-
-/* Control panel keeps its centered X-translate when hiding */
-.screensaver-controls.hidden-panel {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  transform: translateX(-50%) translateY(20px);
-}
-
-/* Hide thumbnails whether the wrapper or inner strip gets the class */
-#screensaver-thumbnails-wrapper.hidden-panel,
-#screensaver-thumbnails.hidden-panel,
-.screensaver-thumbnails.hidden-panel {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  transform: translateY(20px);
 }
