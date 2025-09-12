@@ -439,9 +439,7 @@ document.addEventListener("DOMContentLoaded", () => {
         screensaverContainer.classList.remove("hidden");
 
         // ensure it can receive keyboard focus
-        if (!screensaverContainer.hasAttribute("tabindex")) {
-            screensaverContainer.setAttribute("tabindex", "-1");
-        }
+        screensaverContainer.setAttribute("tabindex", "0");
         // focus so Esc reliably reaches us on hosted pages
         screensaverContainer.focus({ preventScroll: true });
 
@@ -516,6 +514,8 @@ document.addEventListener("DOMContentLoaded", () => {
             hideButton.innerHTML = "🙈";
         }
         window.showToast(controlsHidden ? "Controls hidden" : "Controls visible");
+        // keep focus on the container so ESC continues to work
+        screensaverContainer.focus({ preventScroll: true });
     }
 
     function saveImage() {
