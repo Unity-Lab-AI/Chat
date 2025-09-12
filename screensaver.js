@@ -701,8 +701,9 @@ document.addEventListener("DOMContentLoaded", () => {
         else window.showToast("Start the screensaver first!");
     });
 
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && screensaverActive && controlsHidden) {
+    function handleEscape(e) {
+        const isEscape = e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27;
+        if (isEscape && screensaverActive && controlsHidden) {
             e.stopPropagation();
             e.preventDefault();
             // When the controls are hidden, pressing Escape should unhide them
@@ -710,7 +711,10 @@ document.addEventListener("DOMContentLoaded", () => {
             // function to restore the normal display state.
             toggleControls();
         }
-    });
+    }
+
+    document.addEventListener('keydown', handleEscape);
+    window.addEventListener('keydown', handleEscape);
 
     window.showToast = function(message, duration = 3000) {
         let toast = document.getElementById("toast-notification");
