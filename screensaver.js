@@ -214,7 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
             throw err;
         }
     }
-  
+   
     async function updatePrompt() {
         if (!screensaverActive || paused || !autoPromptEnabled || isFetchingPrompt) {
             return false;
@@ -701,18 +701,16 @@ document.addEventListener("DOMContentLoaded", () => {
         else window.showToast("Start the screensaver first!");
     });
 
+    // 🔑 Fix: Esc toggles the control panel visibility while screensaver is active
     function handleEscape(e) {
         const isEscape = e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27;
         if (isEscape && screensaverActive) {
             e.stopPropagation();
             e.preventDefault();
-            // Always toggle controls when Escape is pressed while the
-            // screensaver is active, letting users both hide and reveal the
-            // panel using the keyboard.
+            // Toggle hidden/visible so users can unhide via keyboard too
             toggleControls();
         }
     }
-
     document.addEventListener('keydown', handleEscape);
     window.addEventListener('keydown', handleEscape);
 
@@ -741,8 +739,3 @@ document.addEventListener("DOMContentLoaded", () => {
 
     console.log("Screensaver initialized with dynamic API prompts and streaming thumbnail gallery!");
 });
-
-
-
-
-
