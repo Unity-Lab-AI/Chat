@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const gallery = document.getElementById('past-image-gallery');
         if (!gallery) return;
         if ([...gallery.querySelectorAll('img.thumbnail')].some(img => img.src === imageUrl)) return;
+        const wrapper = gallery.parentElement;
         const img = document.createElement('img');
         img.src = imageUrl;
         img.className = 'thumbnail';
@@ -17,6 +18,9 @@ document.addEventListener("DOMContentLoaded", () => {
             openImageModal(imageUrl);
         });
         gallery.appendChild(img);
+        if (wrapper && wrapper.classList.contains('hidden')) {
+            wrapper.classList.remove('hidden');
+        }
         if (window.Memory && typeof window.Memory.saveImage === 'function') {
             window.Memory.saveImage(imageUrl);
         }
