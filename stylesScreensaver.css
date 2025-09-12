@@ -2197,6 +2197,7 @@ body[data-theme="serenity"] #fullscreen-screensaver:hover {
 }
 
 /* === ESC toggle & focus robustness (override) === */
+#screensaver-container { outline: none; }
 #screensaver-container:focus { outline: none; }
 
 /* Control panel keeps its centered X-translate when hiding */
