@@ -703,12 +703,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function handleEscape(e) {
         const isEscape = e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27;
-        if (isEscape && screensaverActive && controlsHidden) {
+        if (isEscape && screensaverActive) {
             e.stopPropagation();
             e.preventDefault();
-            // When the controls are hidden, pressing Escape should unhide them
-            // instead of re-hiding. Leverage the existing toggleControls()
-            // function to restore the normal display state.
+            // Always toggle controls when Escape is pressed while the
+            // screensaver is active, letting users both hide and reveal the
+            // panel using the keyboard.
             toggleControls();
         }
     }
