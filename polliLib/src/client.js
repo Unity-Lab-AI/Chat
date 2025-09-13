@@ -1,5 +1,5 @@
-const DEFAULT_USER_AGENT = `polliLib-web/0.1.0 (+https://pollinations.ai)`;
-
+// Browsers do not allow setting a custom `User-Agent` header, so
+// PolliClientWeb relies on the default browser user agent.
 export class PolliClientWeb {
   constructor({
     referrer = inferReferrer(),
