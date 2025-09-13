@@ -623,6 +623,37 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
                 }
 
+                const videoPatterns = window.videoPatterns || [];
+                for (const { pattern, group } of videoPatterns) {
+                    const grpIndex = typeof group === 'number' ? group : 1;
+                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
+                    aiContent = aiContent.replace(p, function () {
+                        const args = arguments;
+                        const prompt = args[grpIndex] && args[grpIndex].trim();
+                        if (!prompt) return '';
+                        // Video handling to be implemented
+                        return '';
+                    });
+                }
+
+                const voicePatterns = window.voicePatterns || [];
+                for (const { pattern, group } of voicePatterns) {
+                    const grpIndex = typeof group === 'number' ? group : 1;
+                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
+                    const matches = Array.from(aiContent.matchAll(p));
+                    for (const match of matches) {
+                        const text = match[grpIndex] && match[grpIndex].trim();
+                        if (!text) continue;
+                        try {
+                            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+                            speakSentences(sentences);
+                        } catch (e) {
+                            console.warn('speakSentences failed', e);
+                        }
+                    }
+                    aiContent = aiContent.replace(p, '');
+                }
+
                 aiContent = aiContent.replace(/\n{2,}/g, '\n').trim();
             }
 
