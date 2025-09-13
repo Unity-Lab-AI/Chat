@@ -565,96 +565,69 @@ document.addEventListener("DOMContentLoaded", () => {
             while ((m = memRegex.exec(aiContent)) !== null) Memory.addMemoryEntry(m[1].trim());
             aiContent = aiContent.replace(memRegex, "").trim();
 
-            if (window.polliLib && window.polliClient && aiContent) {
-                const imgPatterns = window.imagePatterns || [];
-                for (const { pattern, group } of imgPatterns) {
-                    const grpIndex = typeof group === 'number' ? group : 1;
-                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
-                    aiContent = aiContent.replace(p, function () {
-                        const args = arguments;
-                        const prompt = args[grpIndex] && args[grpIndex].trim();
-                        if (!prompt) return '';
-                        try {
-                            const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                                prompt,
-                                width: 512,
-                                height: 512,
-                                private: true,
-                                nologo: true,
-                                safe: true
-                            });
-                            imageUrls.push(url);
-                        } catch (e) {
-                            console.warn('polliLib generateImageUrl failed', e);
+            if (aiContent) {
+                const processPatterns = async (patterns, handler) => {
+                    for (const { pattern, group } of patterns) {
+                        const grpIndex = typeof group === 'number' ? group : 1;
+                        const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
+                        const matches = Array.from(aiContent.matchAll(p));
+                        for (const match of matches) {
+                            const captured = match[grpIndex] && match[grpIndex].trim();
+                            if (!captured) continue;
+                            try { await handler(captured); } catch (e) { console.warn('pattern handler failed', e); }
                         }
-                        return '';
-                    });
-                }
-
-                const audioPatterns = window.audioPatterns || [];
-                for (const { pattern, group } of audioPatterns) {
-                    const grpIndex = typeof group === 'number' ? group : 1;
-                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
-                    const matches = Array.from(aiContent.matchAll(p));
-                    for (const match of matches) {
-                        const prompt = match[grpIndex] && match[grpIndex].trim();
-                        if (!prompt) continue;
-                        try {
-                            const blob = await window.polliLib.tts(prompt, { model: 'openai-audio' }, window.polliClient);
-                            const url = URL.createObjectURL(blob);
-                            audioUrls.push(url);
-                        } catch (e) {
-                            console.warn('polliLib tts failed', e);
-                        }
+                        aiContent = aiContent.replace(p, '');
                     }
-                    aiContent = aiContent.replace(p, '');
-                }
+                };
 
-                const uiPatterns = window.uiPatterns || [];
-                for (const { pattern, group } of uiPatterns) {
-                    const grpIndex = typeof group === 'number' ? group : 1;
-                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
-                    aiContent = aiContent.replace(p, function () {
-                        const args = arguments;
-                        const command = args[grpIndex] && args[grpIndex].trim();
-                        if (!command) return '';
-                        try { executeCommand(command); } catch (e) { console.warn('executeCommand failed', e); }
-                        return '';
-                    });
-                }
-
-                const videoPatterns = window.videoPatterns || [];
-                for (const { pattern, group } of videoPatterns) {
-                    const grpIndex = typeof group === 'number' ? group : 1;
-                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
-                    aiContent = aiContent.replace(p, function () {
-                        const args = arguments;
-                        const prompt = args[grpIndex] && args[grpIndex].trim();
-                        if (!prompt) return '';
-                        // Video handling to be implemented
-                        return '';
-                    });
-                }
-
-                const voicePatterns = window.voicePatterns || [];
-                for (const { pattern, group } of voicePatterns) {
-                    const grpIndex = typeof group === 'number' ? group : 1;
-                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
-                    const matches = Array.from(aiContent.matchAll(p));
-                    for (const match of matches) {
-                        const text = match[grpIndex] && match[grpIndex].trim();
-                        if (!text) continue;
-                        try {
-                            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
-                            speakSentences(sentences);
-                        } catch (e) {
-                            console.warn('speakSentences failed', e);
-                        }
+                await processPatterns(window.imagePatterns || [], async prompt => {
+                    if (!(window.polliLib && window.polliClient)) return;
+                    try {
+                        const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                            prompt,
+                            width: 512,
+                            height: 512,
+                            private: true,
+                            nologo: true,
+                            safe: true
+                        });
+                        imageUrls.push(url);
+                    } catch (e) {
+                        console.warn('polliLib generateImageUrl failed', e);
                     }
-                    aiContent = aiContent.replace(p, '');
-                }
+                });
 
-                aiContent = aiContent.replace(/\n{2,}/g, '\n').trim();
+                await processPatterns(window.audioPatterns || [], async prompt => {
+                    if (!(window.polliLib && window.polliClient)) return;
+                    try {
+                        const blob = await window.polliLib.tts(prompt, { model: 'openai-audio' }, window.polliClient);
+                        const url = URL.createObjectURL(blob);
+                        audioUrls.push(url);
+                    } catch (e) {
+                        console.warn('polliLib tts failed', e);
+                    }
+                });
+
+                await processPatterns(window.uiPatterns || [], async command => {
+                    try { executeCommand(command); } catch (e) { console.warn('executeCommand failed', e); }
+                });
+
+                await processPatterns(window.videoPatterns || [], async prompt => {
+                    // Video handling to be implemented
+                });
+
+                await processPatterns(window.voicePatterns || [], async text => {
+                    try {
+                        const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+                        speakSentences(sentences);
+                    } catch (e) {
+                        console.warn('speakSentences failed', e);
+                    }
+                });
+
+                aiContent = aiContent.replace(/\n{3,}/g, '\n\n');
+                aiContent = aiContent.replace(/\n?---\n?/g, '\n\n---\n\n');
+                aiContent = aiContent.replace(/\n{3,}/g, '\n\n').trim();
             }
 
             window.addNewMessage({ role: "ai", content: aiContent, imageUrls, audioUrls });
