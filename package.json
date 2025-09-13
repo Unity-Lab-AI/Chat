@@ -3,7 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/pollilib-smoke.mjs"
+    "test": "node tests/pollilib-smoke.mjs && node tests/markdown-sanitization.mjs"
+  },
+  "devDependencies": {
+    "marked": "^11.2.0"
   }
 }
 

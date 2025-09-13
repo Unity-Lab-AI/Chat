@@ -55,7 +55,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const bubbleContent = document.createElement("div");
         bubbleContent.classList.add("message-text");
         if (role === "ai") {
-            bubbleContent.innerHTML = marked.parse(content);
+            const sanitized = window.sanitizeMarkdown
+                ? window.sanitizeMarkdown(content, window.blockedFenceTypes)
+                : content;
+            bubbleContent.innerHTML = marked.parse(sanitized);
             if (imageUrls.length > 0) {
                 imageUrls.forEach(url => {
                     const imageContainer = createImageElement(url);
