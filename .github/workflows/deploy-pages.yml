@@ -48,13 +48,29 @@ jobs:
         with:
           path: .
 
+  report-build-status:
+    name: Report Build Status
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report build status to Pages telemetry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh --version
+          gh api -X POST "repos/$GITHUB_REPOSITORY/pages/telemetry"
+
   deploy:
     name: Deploy to Pages
-    needs: build
+    needs: [build, report-build-status]
     # Do not deploy for pull_request events; only push/main, merge_group, dispatch
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy
-        id: deploy
+        id: deployment
         uses: actions/deploy-pages@v4
