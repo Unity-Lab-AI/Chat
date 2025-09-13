@@ -533,6 +533,33 @@ document.addEventListener("DOMContentLoaded", () => {
             while ((m = memRegex.exec(aiContent)) !== null) Memory.addMemoryEntry(m[1].trim());
             aiContent = aiContent.replace(memRegex, "").trim();
 
+            if (window.polliLib && window.polliClient && aiContent) {
+                const patterns = window.imagePatterns || [];
+                for (const { pattern, group } of patterns) {
+                    const grpIndex = typeof group === 'number' ? group : 1;
+                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
+                    aiContent = aiContent.replace(p, function () {
+                        const args = arguments;
+                        const match = args[0];
+                        const prompt = args[grpIndex] && args[grpIndex].trim();
+                        if (!prompt) return match;
+                        try {
+                            return window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                                prompt,
+                                width: 512,
+                                height: 512,
+                                private: true,
+                                nologo: true,
+                                safe: true
+                            });
+                        } catch (e) {
+                            console.warn('polliLib generateImageUrl failed', e);
+                            return match;
+                        }
+                    });
+                }
+            }
+
             window.addNewMessage({ role: "ai", content: aiContent });
             if (autoSpeakEnabled) {
                 const sentences = aiContent.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
