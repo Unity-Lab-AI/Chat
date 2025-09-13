@@ -21,7 +21,8 @@
             const attrRef = cur && cur.getAttribute('data-referrer');
             let base = window.location.origin;
             if (attrRef) {
-              try { base = new URL(attrRef).origin; } catch {}
+              // Support values missing protocol by resolving against window.location.origin
+              try { base = new URL(attrRef, window.location.origin).origin; } catch {}
             }
             const referrer = base.endsWith('/') ? base : base + '/';
             window.polliLib.configure({ referrer });
