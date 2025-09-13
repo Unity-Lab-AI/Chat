@@ -15,9 +15,9 @@ async function apiFetch(url, options = {}, { timeoutMs = 45000 } = {}) {
 }
 window.apiFetch = apiFetch;
 
-// Load global AI instructions from external text file
+// Load global AI instructions from external markdown file
 window.aiInstructions = "";
-window.aiInstructionPromise = fetch("ai-instruct.txt")
+window.aiInstructionPromise = fetch("ai-instruct.md")
     .then(res => res.text())
     .then(text => { window.aiInstructions = text; })
     .catch(err => {
@@ -465,7 +465,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!window.aiInstructions) {
             try {
-                const res = await fetch("ai-instruct.txt", { cache: "no-store" });
+                const res = await fetch("ai-instruct.md", { cache: "no-store" });
                 window.aiInstructions = await res.text();
             } catch (e) {
                 window.aiInstructions = "";
