@@ -572,11 +572,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
                     aiContent = aiContent.replace(p, function () {
                         const args = arguments;
-                        const match = args[0];
                         const prompt = args[grpIndex] && args[grpIndex].trim();
-                        if (!prompt) return match;
+                        if (!prompt) return '';
                         try {
-                            return window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                            const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
                                 prompt,
                                 width: 512,
                                 height: 512,
@@ -584,12 +583,14 @@ document.addEventListener("DOMContentLoaded", () => {
                                 nologo: true,
                                 safe: true
                             });
+                            imageUrls.push(url);
                         } catch (e) {
                             console.warn('polliLib generateImageUrl failed', e);
-                            return match;
                         }
+                        return '';
                     });
                 }
+                aiContent = aiContent.replace(/\n{2,}/g, '\n').trim();
             }
 
             window.addNewMessage({ role: "ai", content: aiContent, imageUrls, audioUrls });
