@@ -275,7 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
             appendSimpleMessage("user", message, currentSession.messages.length - 1);
             simpleInput.value = "";
             simpleSendBtn.disabled = true;
-            window.sendToPollinations(() => {
+            window.sendToPolliLib(() => {
                 const updatedSession = Storage.getCurrentSession();
                 const lastMessage = updatedSession.messages[updatedSession.messages.length - 1];
                 if (lastMessage.role === "ai") {
@@ -311,7 +311,12 @@ document.addEventListener("DOMContentLoaded", () => {
             bubbleContent.classList.add("simple-message-text");
 
             if (role === "ai") {
-                const imgRegex = /https:\/\/image\.pollinations\.ai\/prompt\/[^\s)]+/g;
+                if (!window.polliClient || !window.polliClient.imageBase) {
+                    // No client: skip image extraction
+                }
+                const base = window.polliClient.imageBase;
+                const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const imgRegex = new RegExp(`${escaped}/prompt/[^\\s)]+`, 'g');
                 const matches = content.match(imgRegex) || [];
                 let lastIndex = 0;
                 matches.forEach((url) => {
@@ -559,15 +564,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
         function refreshImage(img, imageId) {
             console.log(`Refreshing image with ID: ${imageId} in simple mode`);
-            if (!img.src || !img.src.includes("image.pollinations.ai")) {
-                window.showToast("No valid Pollinations image source to refresh.");
+            if (!img.src) {
+                window.showToast("No image source to refresh.");
                 return;
             }
             const urlObj = new URL(img.src);
+            if (!window.polliClient || !window.polliClient.imageBase) {
+                window.showToast("Image client not ready.");
+                return;
+            }
+            const baseOrigin = new URL(window.polliClient.imageBase).origin;
+            if (urlObj.origin !== baseOrigin) {
+                window.showToast("Can't refresh: not a polliLib image URL.");
+                return;
+            }
             const newSeed = Math.floor(Math.random() * 1000000);
-            urlObj.searchParams.set('seed', newSeed);
-            urlObj.searchParams.set('nolog', 'true');
-            const newUrl = urlObj.toString();
+            let prompt = '';
+            try {
+                const parts = urlObj.pathname.split('/');
+                const i = parts.indexOf('prompt');
+                if (i >= 0 && parts[i+1]) prompt = decodeURIComponent(parts[i+1]);
+            } catch {}
+            const width = Number(urlObj.searchParams.get('width')) || img.naturalWidth || 512;
+            const height = Number(urlObj.searchParams.get('height')) || img.naturalHeight || 512;
+            const model = urlObj.searchParams.get('model') || (document.getElementById('model-select')?.value || undefined);
+            let newUrl = img.src;
+            try {
+                if (window.polliLib && window.polliClient && prompt) {
+                    newUrl = window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                        prompt, width, height, seed: newSeed, nologo: true, model
+                    });
+                } else {
+                    urlObj.searchParams.set('seed', String(newSeed));
+                    newUrl = urlObj.toString();
+                }
+            } catch (e) {
+                console.warn('polliLib generateImageUrl failed; falling back to seed swap', e);
+                urlObj.searchParams.set('seed', String(newSeed));
+                newUrl = urlObj.toString();
+            }
 
             const loadingDiv = document.createElement("div");
             loadingDiv.className = "simple-ai-image-loading";
@@ -643,7 +678,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             window.showToast("Re-generating entire response. One moment...");
-            window.sendToPollinations(() => {
+            window.sendToPolliLib(() => {
                 const updatedSession = Storage.getCurrentSession();
                 const lastMsg = updatedSession.messages[updatedSession.messages.length - 1];
                 if (lastMsg.role === "ai") {

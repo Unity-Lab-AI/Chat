@@ -1,5 +1,5 @@
 // ===== network.js =====
-async function pollinationsFetch(url, options = {}, { timeoutMs = 45000 } = {}) {
+async function apiFetch(url, options = {}, { timeoutMs = 45000 } = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(new DOMException('timeout', 'AbortError')), timeoutMs);
     try {
@@ -13,7 +13,7 @@ async function pollinationsFetch(url, options = {}, { timeoutMs = 45000 } = {}) 
         clearTimeout(timer);
     }
 }
-window.pollinationsFetch = pollinationsFetch;
+window.apiFetch = apiFetch;
 
 // Load global AI instructions from external text file
 window.aiInstructions = "";
@@ -455,7 +455,7 @@ document.addEventListener("DOMContentLoaded", () => {
         speakMessage(sentences[index], () => speakSentences(sentences, index + 1));
     }
 
-    window.sendToPollinations = async function sendToPollinations(callback = null, overrideContent = null) {
+    window.sendToPolliLib = async function sendToPolliLib(callback = null, overrideContent = null) {
         const currentSession = Storage.getCurrentSession();
         const loadingDiv = document.createElement("div");
         loadingDiv.className = "message ai-message";
@@ -508,12 +508,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            const res = await window.pollinationsFetch("https://text.pollinations.ai/openai", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Accept: "application/json" },
-                body: JSON.stringify({ model, messages })
-            }, { timeoutMs: 45000 });
-            const data = await res.json();
+            // Use polliLib OpenAI-compatible chat endpoint
+            const data = await (window.polliLib?.chat?.({ model, messages }) ?? Promise.reject(new Error('polliLib not loaded')));
             loadingDiv.remove();
             const aiContentRaw = data?.choices?.[0]?.message?.content || "";
             let aiContent = aiContentRaw;

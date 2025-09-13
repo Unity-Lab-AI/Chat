@@ -110,12 +110,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchPollinationsModels() {
         try {
-            const res = await window.pollinationsFetch("https://text.pollinations.ai/models", {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-                cache: "no-store"
-            });
-            const models = await res.json();
+            // Use polliLib to list text models instead of direct endpoint
+            const models = await (window.polliLib?.textModels?.() ?? Promise.reject(new Error('polliLib not loaded')));
             modelSelect.innerHTML = "";
             let hasValidModel = false;
 

@@ -141,12 +141,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchImageModels() {
         try {
-            const res = await window.pollinationsFetch("https://image.pollinations.ai/models", {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-                cache: "no-store"
-            });
-            const models = await res.json();
+            // Use polliLib to list image models instead of direct endpoint
+            const models = await (window.polliLib?.imageModels?.() ?? Promise.reject(new Error('polliLib not loaded')));
             modelSelect.innerHTML = "";
             if (Array.isArray(models) && models.length > 0) {
                 models.forEach(name => {
@@ -195,17 +191,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const textModel = document.getElementById("model-select")?.value;
         const seed = generateSeed();
         try {
-            const response = await window.pollinationsFetch("https://text.pollinations.ai/openai", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Accept: "application/json" },
-                cache: "no-store",
-                body: JSON.stringify({
-                    model: textModel || "openai",
-                    seed,
-                    messages: [{ role: "user", content: metaPrompt }]
-                })
-            });
-            const data = await response.json();
+            // Use polliLib chat to generate a single short prompt
+            const data = await (window.polliLib?.chat?.({
+                model: textModel || "openai",
+                seed,
+                messages: [{ role: "user", content: metaPrompt }]
+            }) ?? Promise.reject(new Error('polliLib not loaded')));
             const generatedPrompt = data?.choices?.[0]?.message?.content?.trim();
             if (!generatedPrompt) throw new Error("No fucking prompt returned from API");
             return generatedPrompt;
@@ -260,8 +251,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const enhance = settings.enhance;
         const priv = settings.priv;
 
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&model=${model}&nologo=true&private=${priv}&enhance=${enhance}&nolog=true&referrer=unityailab.com`;
-        console.log("Generated new image URL:", url);
+        // Build the image URL via polliLib MCP helper (no direct endpoint usage)
+        const url = (function(){
+            try {
+                if (window.polliLib && window.polliClient) {
+                    return window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                        prompt,
+                        width, height, seed, model,
+                        nologo: true,
+                        private: priv,
+                        enhance: !!enhance
+                    });
+                }
+            } catch (e) { console.warn('polliLib generateImageUrl failed', e); }
+            // Fallback to placeholder if polliLib not available
+            return "https://via.placeholder.com/512?text=Image+Unavailable";
+        })();
+        console.log("Generated new image URL via polliLib:", url);
 
         const nextImage = currentImage === 'image1' ? 'image2' : 'image1';
         const nextImgElement = document.getElementById(`screensaver-${nextImage}`);

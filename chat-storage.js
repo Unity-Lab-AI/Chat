@@ -336,15 +336,45 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function refreshImage(img, imageId) {
         console.log(`Refreshing image with ID: ${imageId}`);
-        if (!img.src || !img.src.includes("image.pollinations.ai")) {
-            showToast("No valid Pollinations image source to refresh.");
+        if (!img.src) {
+            showToast("No image source to refresh.");
             return;
         }
         const urlObj = new URL(img.src);
+        if (!window.polliClient || !window.polliClient.imageBase) {
+            showToast("Image client not ready.");
+            return;
+        }
+        const baseOrigin = new URL(window.polliClient.imageBase).origin;
+        if (urlObj.origin !== baseOrigin) {
+            showToast("Can't refresh: not a polliLib image URL.");
+            return;
+        }
         const newSeed = Math.floor(Math.random() * 1000000);
-        urlObj.searchParams.set('seed', newSeed);
-        urlObj.searchParams.set('nolog', 'true');
-        const newUrl = urlObj.toString();
+        let prompt = '';
+        try {
+            const parts = urlObj.pathname.split('/');
+            const i = parts.indexOf('prompt');
+            if (i >= 0 && parts[i+1]) prompt = decodeURIComponent(parts[i+1]);
+        } catch {}
+        const width = Number(urlObj.searchParams.get('width')) || img.naturalWidth || 512;
+        const height = Number(urlObj.searchParams.get('height')) || img.naturalHeight || 512;
+        const model = urlObj.searchParams.get('model') || (document.getElementById('model-select')?.value || undefined);
+        let newUrl = img.src;
+        try {
+            if (window.polliLib && window.polliClient && prompt) {
+                newUrl = window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                    prompt, width, height, seed: newSeed, nologo: true, model
+                });
+            } else {
+                urlObj.searchParams.set('seed', String(newSeed));
+                newUrl = urlObj.toString();
+            }
+        } catch (e) {
+            console.warn('polliLib generateImageUrl failed; falling back to seed swap', e);
+            urlObj.searchParams.set('seed', String(newSeed));
+            newUrl = urlObj.toString();
+        }
         const loadingDiv = document.createElement("div");
         loadingDiv.className = "ai-image-loading";
         const spinner = document.createElement("div");
@@ -382,7 +412,10 @@ document.addEventListener("DOMContentLoaded", () => {
         chatBox.innerHTML = "";
         messages.forEach((msg, idx) => {
             console.log(`Appending message at index ${idx}: ${msg.role}`);
-            const imgRegex = /(https:\/\/image\.pollinations\.ai\/prompt\/[^ ]+)/g;
+            if (!window.polliClient || !window.polliClient.imageBase) return appendMessage({ role: msg.role, content: msg.content, index: idx, imageUrls: [] });
+            const baseList = [ window.polliClient.imageBase ];
+            const escaped = baseList.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            const imgRegex = new RegExp(`(${escaped.join('|')})/prompt/[^ ]+`, 'g');
             const imgMatches = msg.content.match(imgRegex) || [];
             appendMessage({ 
                 role: msg.role, 
@@ -399,7 +432,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const currentSession = Storage.getCurrentSession();
         currentSession.messages.push({ role, content });
         Storage.updateSessionMessages(currentSession.id, currentSession.messages);
-        const imgRegex = /(https:\/\/image\.pollinations\.ai\/prompt\/[^ ]+)/g;
+        if (!window.polliClient || !window.polliClient.imageBase) {
+            appendMessage({ role, content, index: currentSession.messages.length - 1, imageUrls: [] });
+            if (role === "ai") checkAndUpdateSessionTitle();
+            return;
+        }
+        const base = window.polliClient.imageBase;
+        const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const imgRegex = new RegExp(`(${escaped}\/prompt\/[^ ]+)`, 'g');
         const imgMatches = content.match(imgRegex) || [];
         appendMessage({ 
             role, 
@@ -431,7 +471,7 @@ document.addEventListener("DOMContentLoaded", () => {
             loadingDiv.textContent = "Generating response...";
             chatBox.appendChild(loadingDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
-            window.sendToPollinations(() => {
+            window.sendToPolliLib(() => {
                 loadingDiv.remove();
                 highlightAllCodeBlocks();
             }, newContent);
@@ -479,7 +519,7 @@ document.addEventListener("DOMContentLoaded", () => {
         chatBox.scrollTop = chatBox.scrollHeight;
         const uniqueUserMessage = `${userMessage} [regen-${Date.now()}-${Math.random().toString(36).substring(2)}]`;
         console.log(`Sending re-generate request for user message: ${userMessage} (with unique suffix: ${uniqueUserMessage})`);
-        window.sendToPollinations(() => {
+        window.sendToPolliLib(() => {
             loadingDiv.remove();
             highlightAllCodeBlocks();
             showToast("Response regenerated successfully");
@@ -586,7 +626,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.addNewMessage({ role: "user", content: message });
         chatInput.value = "";
         chatInput.style.height = "auto";
-        window.sendToPollinations(() => {
+        window.sendToPolliLib(() => {
             sendButton.disabled = false;
             chatInput.disabled = false;
             chatInput.focus();
@@ -637,8 +677,23 @@ document.addEventListener("DOMContentLoaded", () => {
             const seed = Math.floor(Math.random() * 1000000);
             const imageId = `voice-img-${Date.now()}`;
             localStorage.setItem(`voiceImageId_${imageId}`, imageId);
-            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=512&height=512&seed=${seed}&nolog=true&referrer=unityailab.com`;
-            voiceChatImage.src = imageUrl;
+            try {
+                if (window.polliLib && window.polliClient) {
+                    const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                        prompt: imagePrompt,
+                        width: 512,
+                        height: 512,
+                        seed,
+                        nologo: true
+                    });
+                    voiceChatImage.src = url;
+                } else {
+                    voiceChatImage.src = "https://via.placeholder.com/512?text=Image+Unavailable";
+                }
+            } catch (e) {
+                console.warn('polliLib generateImageUrl failed', e);
+                voiceChatImage.src = "https://via.placeholder.com/512?text=Image+Unavailable";
+            }
             voiceChatImage.dataset.imageId = imageId;
             voiceChatImage.onload = () => {
                 attachImageButtons(voiceChatImage, imageId);
@@ -722,7 +777,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     silenceTimeout = setTimeout(() => {
                         if (voiceBuffer.trim()) {
                             window.addNewMessage({ role: "user", content: voiceBuffer.trim() });
-                            window.sendToPollinations(() => {
+                            window.sendToPolliLib(() => {
                                 startVoiceChatSlideshow();
                                 chatInput.focus();
                             });

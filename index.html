@@ -10,6 +10,32 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="stylesScreensaver.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script defer src="polliLib/polliLib-web.global.js"></script>
+    <script defer>
+      // Configure polliLib default client and expose an explicit client for MCP helpers
+      (function(){
+        try {
+          if (window.polliLib) {
+            // Use a stable referrer for API tiering; avoid hardcoding endpoints elsewhere
+            window.polliLib.configure({ referrer: 'unityailab.com' });
+            window.polliClient = new window.polliLib.PolliClientWeb({ referrer: 'unityailab.com' });
+
+            // Provide basic helpers used by image features
+            if (!window.randomSeed) {
+              window.randomSeed = function randomSeed() { return Math.floor(Math.random() * 1000000); };
+            }
+            if (!window.imagePatterns) {
+              window.imagePatterns = [
+                { pattern: /image:\s*(.+)/i, group: 1 },
+                { pattern: /show me\s+(.+)/i, group: 1 },
+                { pattern: /generate (?:an |a )?image of\s+(.+)/i, group: 1 },
+                { pattern: /picture of\s+(.+)/i, group: 1 },
+              ];
+            }
+          }
+        } catch (e) { console.warn('polliLib configure failed', e); }
+      })();
+    </script>
   </head>
   <body>
     <div id="screensaver-container" class="screensaver hidden">
