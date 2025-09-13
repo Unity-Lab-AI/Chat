@@ -55,36 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const bubbleContent = document.createElement("div");
         bubbleContent.classList.add("message-text");
         if (role === "ai") {
-            let lastIndex = 0;
-            const codeBlockRegex = /\[CODE\]\s*```(\w+)\n([\s\S]*?)\n```\s*\[\/CODE\]/g;
-            let match;
-            while ((match = codeBlockRegex.exec(content)) !== null) {
-                const matchStart = match.index;
-                const matchEnd = matchStart + match[0].length;
-                if (matchStart > lastIndex) {
-                    const textPart = content.substring(lastIndex, matchStart);
-                    if (textPart.trim()) {
-                        const textNode = document.createTextNode(textPart.trim());
-                        bubbleContent.appendChild(textNode);
-                    }
-                }
-                const language = match[1];
-                const code = match[2];
-                const pre = document.createElement("pre");
-                const codeElement = document.createElement("code");
-                codeElement.className = `language-${language}`;
-                codeElement.textContent = code;
-                pre.appendChild(codeElement);
-                bubbleContent.appendChild(pre);
-                lastIndex = matchEnd;
-            }
-            if (lastIndex < content.length) {
-                const remainingText = content.substring(lastIndex);
-                if (remainingText.trim()) {
-                    const textNode = document.createTextNode(remainingText.trim());
-                    bubbleContent.appendChild(textNode);
-                }
-            }
+            bubbleContent.innerHTML = marked.parse(content);
             if (imageUrls.length > 0) {
                 imageUrls.forEach(url => {
                     const imageContainer = createImageElement(url);

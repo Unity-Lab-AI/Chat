@@ -34,10 +34,21 @@
             }
             if (!window.imagePatterns) {
               window.imagePatterns = [
+                { pattern: /```image\n([\s\S]*?)\n```/i, group: 1 },
                 { pattern: /image:\s*(.+)/i, group: 1 },
                 { pattern: /show me\s+(.+)/i, group: 1 },
                 { pattern: /generate (?:an |a )?image of\s+(.+)/i, group: 1 },
                 { pattern: /picture of\s+(.+)/i, group: 1 },
+              ];
+            }
+            if (!window.audioPatterns) {
+              window.audioPatterns = [
+                { pattern: /```audio\n([\s\S]*?)\n```/i, group: 1 },
+              ];
+            }
+            if (!window.uiPatterns) {
+              window.uiPatterns = [
+                { pattern: /```ui\n([\s\S]*?)\n```/i, group: 1 },
               ];
             }
           }
