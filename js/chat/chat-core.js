@@ -17,7 +17,7 @@ window.apiFetch = apiFetch;
 
 // Load global AI instructions from external markdown file
 window.aiInstructions = "";
-window.aiInstructionPromise = fetch("ai-instruct.md")
+window.aiInstructionPromise = fetch("prompts/ai-instruct.md")
     .then(res => res.text())
     .then(text => { window.aiInstructions = text; })
     .catch(err => {
@@ -465,7 +465,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!window.aiInstructions) {
             try {
-                const res = await fetch("ai-instruct.md", { cache: "no-store" });
+                const res = await fetch("prompts/ai-instruct.md", { cache: "no-store" });
                 window.aiInstructions = await res.text();
             } catch (e) {
                 window.aiInstructions = "";
