@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Prism.highlightElement(block);
         });
     }
-    function appendMessage({ role, content, index, imageUrls = [] }) {
+    function appendMessage({ role, content, index, imageUrls = [], audioUrls = [] }) {
         const container = document.createElement("div");
         container.classList.add("message");
         container.dataset.index = index;
@@ -89,6 +89,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 imageUrls.forEach(url => {
                     const imageContainer = createImageElement(url);
                     bubbleContent.appendChild(imageContainer);
+                });
+            }
+            if (audioUrls.length > 0) {
+                audioUrls.forEach(url => {
+                    const audioEl = createAudioElement(url);
+                    bubbleContent.appendChild(audioEl);
                 });
             }
         } else {
@@ -220,6 +226,15 @@ document.addEventListener("DOMContentLoaded", () => {
         imgButtonContainer.dataset.imageId = imageId;
         imageContainer.appendChild(imgButtonContainer);
         return imageContainer;
+    }
+
+    function createAudioElement(url) {
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = url;
+        audio.className = "ai-generated-audio";
+        audio.style.display = "block";
+        return audio;
     }
     function attachImageButtons(img, imageId) {
         const imgButtonContainer = document.querySelector(`.image-button-container[data-image-id="${imageId}"]`);
@@ -381,40 +396,50 @@ document.addEventListener("DOMContentLoaded", () => {
         chatBox.innerHTML = "";
         messages.forEach((msg, idx) => {
             console.log(`Appending message at index ${idx}: ${msg.role}`);
-            if (!window.polliClient || !window.polliClient.imageBase) return appendMessage({ role: msg.role, content: msg.content, index: idx, imageUrls: [] });
-            const baseList = [ window.polliClient.imageBase ];
-            const escaped = baseList.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-            const imgRegex = new RegExp(`(${escaped.join('|')})/prompt/[^ ]+`, 'g');
-            const imgMatches = msg.content.match(imgRegex) || [];
-            appendMessage({ 
-                role: msg.role, 
-                content: msg.content, 
+            const storedImages = Array.isArray(msg.imageUrls) ? msg.imageUrls : [];
+            const storedAudio = Array.isArray(msg.audioUrls) ? msg.audioUrls : [];
+            let imgMatches = storedImages;
+            if (imgMatches.length === 0 && msg.content) {
+                if (window.polliClient && window.polliClient.imageBase) {
+                    const baseList = [ window.polliClient.imageBase ];
+                    const escaped = baseList.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+                    const imgRegex = new RegExp(`(${escaped.join('|')})/prompt/[^ ]+`, 'g');
+                    imgMatches = msg.content.match(imgRegex) || [];
+                } else {
+                    imgMatches = [];
+                }
+            }
+            appendMessage({
+                role: msg.role,
+                content: msg.content,
                 index: idx,
-                imageUrls: imgMatches
+                imageUrls: imgMatches,
+                audioUrls: storedAudio
             });
         });
         highlightAllCodeBlocks();
         chatInput.disabled = false;
         chatInput.focus();
     }
-    window.addNewMessage = function ({ role, content }) {
+    window.addNewMessage = function ({ role, content, imageUrls = [], audioUrls = [] }) {
         const currentSession = Storage.getCurrentSession();
-        currentSession.messages.push({ role, content });
+        currentSession.messages.push({ role, content, imageUrls, audioUrls });
         Storage.updateSessionMessages(currentSession.id, currentSession.messages);
         if (!window.polliClient || !window.polliClient.imageBase) {
-            appendMessage({ role, content, index: currentSession.messages.length - 1, imageUrls: [] });
+            appendMessage({ role, content, index: currentSession.messages.length - 1, imageUrls, audioUrls });
             if (role === "ai") checkAndUpdateSessionTitle();
             return;
         }
         const base = window.polliClient.imageBase;
         const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const imgRegex = new RegExp(`(${escaped}\/prompt\/[^ ]+)`, 'g');
-        const imgMatches = content.match(imgRegex) || [];
-        appendMessage({ 
-            role, 
-            content, 
+        const imgMatches = imageUrls.length > 0 ? imageUrls : (content.match(imgRegex) || []);
+        appendMessage({
+            role,
+            content,
             index: currentSession.messages.length - 1,
-            imageUrls: imgMatches
+            imageUrls: imgMatches,
+            audioUrls
         });
         if (role === "ai") checkAndUpdateSessionTitle();
     };

@@ -537,8 +537,28 @@ document.addEventListener("DOMContentLoaded", () => {
             // Use polliLib OpenAI-compatible chat endpoint
             const data = await (window.polliLib?.chat?.({ model, messages }) ?? Promise.reject(new Error('polliLib not loaded')));
             loadingDiv.remove();
-            const aiContentRaw = data?.choices?.[0]?.message?.content || "";
-            let aiContent = aiContentRaw;
+
+            const messageObj = data?.choices?.[0]?.message || {};
+            const imageUrls = [];
+            const audioUrls = [];
+            let aiContent = "";
+
+            if (Array.isArray(messageObj.content)) {
+                for (const part of messageObj.content) {
+                    if (!part) continue;
+                    if (typeof part === 'string') {
+                        aiContent += part;
+                    } else if (part.type === 'text' && part.text) {
+                        aiContent += part.text;
+                    } else if (part.type === 'image_url' && part.image_url?.url) {
+                        imageUrls.push(part.image_url.url);
+                    } else if (part.type === 'audio' && part.audio?.url) {
+                        audioUrls.push(part.audio.url);
+                    }
+                }
+            } else {
+                aiContent = messageObj.content || "";
+            }
 
             const memRegex = /\[memory\]([\s\S]*?)\[\/memory\]/gi;
             let m;
@@ -572,7 +592,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            window.addNewMessage({ role: "ai", content: aiContent });
+            window.addNewMessage({ role: "ai", content: aiContent, imageUrls, audioUrls });
             if (autoSpeakEnabled) {
                 const sentences = aiContent.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
                 speakSentences(sentences);
