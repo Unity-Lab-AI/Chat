@@ -566,8 +566,8 @@ document.addEventListener("DOMContentLoaded", () => {
             aiContent = aiContent.replace(memRegex, "").trim();
 
             if (window.polliLib && window.polliClient && aiContent) {
-                const patterns = window.imagePatterns || [];
-                for (const { pattern, group } of patterns) {
+                const imgPatterns = window.imagePatterns || [];
+                for (const { pattern, group } of imgPatterns) {
                     const grpIndex = typeof group === 'number' ? group : 1;
                     const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
                     aiContent = aiContent.replace(p, function () {
@@ -590,6 +590,39 @@ document.addEventListener("DOMContentLoaded", () => {
                         return '';
                     });
                 }
+
+                const audioPatterns = window.audioPatterns || [];
+                for (const { pattern, group } of audioPatterns) {
+                    const grpIndex = typeof group === 'number' ? group : 1;
+                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
+                    const matches = Array.from(aiContent.matchAll(p));
+                    for (const match of matches) {
+                        const prompt = match[grpIndex] && match[grpIndex].trim();
+                        if (!prompt) continue;
+                        try {
+                            const blob = await window.polliLib.tts(prompt, { model: 'openai-audio' }, window.polliClient);
+                            const url = URL.createObjectURL(blob);
+                            audioUrls.push(url);
+                        } catch (e) {
+                            console.warn('polliLib tts failed', e);
+                        }
+                    }
+                    aiContent = aiContent.replace(p, '');
+                }
+
+                const uiPatterns = window.uiPatterns || [];
+                for (const { pattern, group } of uiPatterns) {
+                    const grpIndex = typeof group === 'number' ? group : 1;
+                    const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
+                    aiContent = aiContent.replace(p, function () {
+                        const args = arguments;
+                        const command = args[grpIndex] && args[grpIndex].trim();
+                        if (!command) return '';
+                        try { executeCommand(command); } catch (e) { console.warn('executeCommand failed', e); }
+                        return '';
+                    });
+                }
+
                 aiContent = aiContent.replace(/\n{2,}/g, '\n').trim();
             }
 

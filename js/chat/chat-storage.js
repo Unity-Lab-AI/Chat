@@ -55,8 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const bubbleContent = document.createElement("div");
         bubbleContent.classList.add("message-text");
         if (role === "ai") {
-            const processed = content.replace(/\[CODE\]/g, "").replace(/\[\/CODE\]/g, "");
-            bubbleContent.innerHTML = marked.parse(processed);
+            bubbleContent.innerHTML = marked.parse(content);
             if (imageUrls.length > 0) {
                 imageUrls.forEach(url => {
                     const imageContainer = createImageElement(url);
