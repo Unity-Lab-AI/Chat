@@ -16,9 +16,11 @@
       (function(){
         try {
           if (window.polliLib) {
-            // Use a stable referrer for API tiering; avoid hardcoding endpoints elsewhere
-            window.polliLib.configure({ referrer: 'unityailab.com' });
-            window.polliClient = new window.polliLib.PolliClientWeb({ referrer: 'unityailab.com' });
+            // Derive referrer from attribute or window location
+            const cur = document.currentScript;
+            const referrer = (cur && cur.getAttribute('data-referrer')) || window.location.origin;
+            window.polliLib.configure({ referrer });
+            window.polliClient = window.polliLib.getDefaultClient();
 
             // Provide basic helpers used by image features
             if (!window.randomSeed) {
