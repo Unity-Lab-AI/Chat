@@ -25,6 +25,25 @@ window.aiInstructionPromise = fetch("prompts/ai-instruct.md")
         window.aiInstructions = "";
     });
 
+// Ensure AI instructions are loaded before any polliLib calls
+window.ensureAIInstructions = async function ensureAIInstructions() {
+    if (window.aiInstructions) return window.aiInstructions;
+    try {
+        if (window.aiInstructionPromise) await window.aiInstructionPromise;
+    } catch (e) {
+        // fall through to re-fetch
+    }
+    if (window.aiInstructions) return window.aiInstructions;
+    try {
+        const res = await fetch("prompts/ai-instruct.md", { cache: "no-store" });
+        window.aiInstructions = await res.text();
+    } catch (e) {
+        console.error("Failed to fetch AI instructions", e);
+        window.aiInstructions = "";
+    }
+    return window.aiInstructions;
+};
+
 document.addEventListener("DOMContentLoaded", () => {
 
     const chatBox = document.getElementById("chat-box");
@@ -463,14 +482,7 @@ document.addEventListener("DOMContentLoaded", () => {
         chatBox.appendChild(loadingDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
 
-        if (!window.aiInstructions) {
-            try {
-                const res = await fetch("prompts/ai-instruct.md", { cache: "no-store" });
-                window.aiInstructions = await res.text();
-            } catch (e) {
-                window.aiInstructions = "";
-            }
-        }
+        await window.ensureAIInstructions();
 
         const messages = [];
         if (window.aiInstructions) {

@@ -191,11 +191,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const textModel = document.getElementById("model-select")?.value;
         const seed = generateSeed();
         try {
+            await window.ensureAIInstructions?.();
+            const messages = [];
+            if (window.aiInstructions) {
+                messages.push({ role: "system", content: window.aiInstructions });
+            }
+            messages.push({ role: "user", content: metaPrompt });
             // Use polliLib chat to generate a single short prompt
             const data = await (window.polliLib?.chat?.({
                 model: textModel || "openai",
                 seed,
-                messages: [{ role: "user", content: metaPrompt }]
+                messages
             }) ?? Promise.reject(new Error('polliLib not loaded')));
             const generatedPrompt = data?.choices?.[0]?.message?.content?.trim();
             if (!generatedPrompt) throw new Error("No fucking prompt returned from API");
