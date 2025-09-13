@@ -1,18 +1,18 @@
 /*
   Non-blocking smoke tests for polliLib and minimal site structure.
   - Uses only Node 20 built-ins (no deps)
-  - Does not modify /polliLib; only imports from src
+  - Uses copy under /js/polliLib; does not modify original /polliLib
   - Intended to run in CI and summarize results
 */
 
-import { PolliClientWeb } from '../polliLib/src/client.js';
-import { text as textGet, chat, textModels, search } from '../polliLib/src/text.js';
-import { image, imageModels } from '../polliLib/src/image.js';
-import { tts } from '../polliLib/src/audio.js';
-import { vision } from '../polliLib/src/vision.js';
-import * as pipeline from '../polliLib/src/pipeline.js';
-import * as tools from '../polliLib/src/tools.js';
-import * as mcp from '../polliLib/src/mcp.js';
+import { PolliClientWeb } from '../js/polliLib/src/client.js';
+import { text as textGet, chat, textModels, search } from '../js/polliLib/src/text.js';
+import { image, imageModels } from '../js/polliLib/src/image.js';
+import { tts } from '../js/polliLib/src/audio.js';
+import { vision } from '../js/polliLib/src/vision.js';
+import * as pipeline from '../js/polliLib/src/pipeline.js';
+import * as tools from '../js/polliLib/src/tools.js';
+import * as mcp from '../js/polliLib/src/mcp.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
