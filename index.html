@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <title>Unity AI Lab Chat</title>
+    <title>Unity Chat UI 0.14.7</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,23 +15,7 @@
     <div id="screensaver-container" class="screensaver hidden">
       <img id="screensaver-image1" alt="Screensaver Image" style="opacity: 0;">
       <img id="screensaver-image2" alt="Screensaver Image" style="opacity: 0;">
-      <div id="screensaver-thumbnails-wrapper" class="screensaver-thumbnails-wrapper">
-        <button id="screensaver-thumb-left" class="thumb-nav" aria-label="Scroll thumbnails left">&#9664;</button>
-        <div id="screensaver-thumbnails" class="screensaver-thumbnails">
-          <!-- Predefined slots for up to ten thumbnails -->
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-          <img class="thumbnail placeholder" alt="Empty slot" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
-        </div>
-        <button id="screensaver-thumb-right" class="thumb-nav" aria-label="Scroll thumbnails right">&#9654;</button>
-      </div>
+      <div id="screensaver-thumbnails" class="screensaver-thumbnails"></div>
       <div class="screensaver-controls">
         <div class="screensaver-settings">
           <label>Prompt:
@@ -145,11 +129,6 @@
               <button id="clear-chat" class="control-btn" title="Clear current chat conversation">
                 <i class="fas fa-trash-alt"></i> Clear Chat
               </button>
-            </div>
-          </div>
-          <div class="gallery-wrapper hidden">
-            <div id="past-image-gallery" class="screensaver-thumbnails">
-              <!-- JS will populate thumbnails here -->
             </div>
           </div>
         </div>
@@ -424,20 +403,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js" defer></script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js" defer></script>
     <script defer src="screensaver.js"></script>
     <script defer src="storage.js"></script>
     <script defer src="memory-api.js"></script>
-
-    <!-- chat-core FIRST so pollinationsFetch exists -->
-    <script defer src="chat-core.js"></script>
-
-    <!-- UI now safely uses pollinationsFetch -->
     <script defer src="ui.js"></script>
-
+    <script defer src="chat-core.js"></script>
     <script defer src="chat-storage.js"></script>
     <script defer src="chat-init.js"></script>
     <script defer src="simple.js"></script>

@@ -266,7 +266,14 @@ document.addEventListener("DOMContentLoaded", () => {
             simpleInput.style.height = simpleInput.scrollHeight + "px";
         });
 
-        const handleSimpleSend = () => {
+        simpleInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                simpleSendBtn.click();
+            }
+        });
+
+        simpleSendBtn.addEventListener("click", () => {
             const message = simpleInput.value.trim();
             if (message === "") return;
             const currentSession = Storage.getCurrentSession();
@@ -283,17 +290,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 simpleInput.focus();
             });
-        };
-        simpleSendBtn.addEventListener("click", handleSimpleSend);
-
-        // Send on Enter, allow newline with Shift+Enter
-        simpleInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                if (e.shiftKey) return; // allow newline
-                e.preventDefault();
-                // Call the same handler used by the send button
-                handleSimpleSend();
-            }
         });
 
         function appendSimpleMessage(role, content, index) {

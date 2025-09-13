@@ -44,12 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function getDefaultModel() {
-    let model = localStorage.getItem("defaultModelPreference");
-    if (!model) {
-      model = "unity";
-      localStorage.setItem("defaultModelPreference", model);
-    }
-    return model;
+    return localStorage.getItem("defaultModelPreference") || "";
   }
 
   function setDefaultModel(modelName) {

@@ -341,7 +341,6 @@ body {
   margin-top: 8px;
   flex-wrap: wrap;
   z-index: 10;
-  position: relative;
 }
 
 .image-button {
@@ -791,18 +790,27 @@ body {
 }
 
 .screensaver-thumbnails {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: row;
-  gap: 10px;
+  flex-wrap: nowrap;
+  gap: 12px;
   overflow-x: auto;
   width: 100%;
-  max-width: 1290px;
+  height: 120px;
   padding: 10px;
   background: rgba(0, 0, 0, 0.7);
-  border-radius: 12px;
+  border-radius: 0;
+  z-index: 2;
   transition: opacity 0.3s ease;
   scrollbar-width: thin;
+  scrollbar-color: #707070 #333333;
   white-space: nowrap;
+  direction: ltr;
+  scroll-behavior: smooth;
 }
 
 .screensaver-thumbnails::-webkit-scrollbar {
@@ -820,8 +828,8 @@ body {
 }
 
 .screensaver-thumbnails img.thumbnail {
-  width: 120px;
-  height: 80px;
+  width: 160px;
+  height: 90px;
   object-fit: cover;
   cursor: pointer;
   border: 3px solid transparent;
@@ -830,13 +838,6 @@ body {
   flex-shrink: 0;
   display: inline-block;
   opacity: 1;
-  position: static;
-}
-
-.screensaver-thumbnails img.thumbnail.placeholder {
-  opacity: 0.3;
-  border: 3px dashed #555;
-  pointer-events: none;
 }
 
 .screensaver-thumbnails img.thumbnail:hover {
@@ -960,46 +961,4 @@ body {
   left: 0;
   z-index: 1;
   pointer-events: none;
-}
-
-/* Bottom gallery for past screensaver images */
-.gallery-wrapper {
-  position: fixed;
-  bottom: 0;
-  left: 260px;
-  right: 0;
-  background: rgba(0,0,0,0.7);
-  padding: 8px;
-  border-top: 2px solid #505050;
-  z-index: 50;
-  pointer-events: none;
-}
-
-#past-image-gallery {
-  display: flex;
-  flex-direction: row;
-  gap: 10px;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  pointer-events: auto;
-}
-
-#past-image-gallery img.thumbnail {
-  width: 100px;
-  height: 70px;
-  object-fit: cover;
-  cursor: pointer;
-  border: 2px solid transparent;
-  border-radius: 6px;
-  transition: border 0.2s, transform 0.2s;
-  flex-shrink: 0;
-}
-
-#past-image-gallery img.thumbnail:hover {
-  border: 2px solid #00ffcc;
-  transform: scale(1.05);
-}
-
-#past-image-gallery img.thumbnail.selected {
-  border: 2px solid #ffcc00;
 }

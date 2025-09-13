@@ -570,18 +570,13 @@ document.addEventListener("DOMContentLoaded", () => {
         chatInput.style.height = "auto";
         chatInput.style.height = chatInput.scrollHeight + "px";
     });
-    sendButton.addEventListener("click", handleSendMessage);
-
-    // Send on Enter, allow newline with Shift+Enter
-    chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            if (e.shiftKey) return; // allow newline
+    chatInput.addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            // Directly invoke the send handler so the message is processed
-            // even if the button state would block programmatic clicks.
             handleSendMessage();
         }
     });
+    sendButton.addEventListener("click", handleSendMessage);
     sendButton.disabled = chatInput.value.trim() === "";
     chatInput.dispatchEvent(new Event("input"));
     const initialSession = Storage.getCurrentSession();

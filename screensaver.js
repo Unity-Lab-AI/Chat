@@ -17,10 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const modelSelect = document.getElementById("screensaver-model");
     const transitionDurationInput = document.getElementById("screensaver-transition-duration");
     const restartPromptButton = document.getElementById("screensaver-restart-prompt");
-    const thumbnailsWrapper = document.getElementById("screensaver-thumbnails-wrapper");
-    const thumbnailsContainer = document.getElementById("screensaver-thumbnails");
-    const thumbLeftButton = document.getElementById("screensaver-thumb-left");
-    const thumbRightButton = document.getElementById("screensaver-thumb-right");
 
     let screensaverActive = false;
     let imageInterval = null;
@@ -35,8 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let autoPromptEnabled = true;
     let isFetchingPrompt = false;
     let lastPromptUpdate = 0;
-    const MAX_HISTORY = 10;
-    const EMPTY_THUMBNAIL = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+    const MAX_HISTORY = 12;
     const PROMPT_UPDATE_INTERVAL = 20000;
 
     let settings = {
@@ -130,15 +125,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadScreensaverSettings();
     loadImageHistory();
 
-    if (thumbLeftButton && thumbRightButton && thumbnailsContainer) {
-        thumbLeftButton.addEventListener("click", () => {
-            thumbnailsContainer.scrollBy({ left: -thumbnailsContainer.clientWidth, behavior: "smooth" });
-        });
-        thumbRightButton.addEventListener("click", () => {
-            thumbnailsContainer.scrollBy({ left: thumbnailsContainer.clientWidth, behavior: "smooth" });
-        });
-    }
-
     async function fetchImageModels() {
         try {
             const res = await window.pollinationsFetch("https://image.pollinations.ai/models", {
@@ -194,19 +180,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const metaPrompt = "Generate exactly one short-125-character, new, fucked up and explicit wild image prompt as text only of outlandish and psychologically thrilling image. i.e. demented, evil, psychotic art.";
         const textModel = document.getElementById("model-select")?.value;
         const seed = generateSeed();
+        const apiUrl = `https://text.pollinations.ai/${encodeURIComponent(metaPrompt)}?seed=${seed}&safe=false${textModel ? `&model=${encodeURIComponent(textModel)}` : ""}`;
         try {
-            const response = await window.pollinationsFetch("https://text.pollinations.ai/openai", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Accept: "application/json" },
-                cache: "no-store",
-                body: JSON.stringify({
-                    model: textModel || "openai",
-                    seed,
-                    messages: [{ role: "user", content: metaPrompt }]
-                })
+            const response = await window.pollinationsFetch(apiUrl, {
+                method: "GET",
+                headers: { Accept: "text/plain" },
+                cache: "no-store"
             });
-            const data = await response.json();
-            const generatedPrompt = data?.choices?.[0]?.message?.content?.trim();
+            const generatedPrompt = await response.text();
             if (!generatedPrompt) throw new Error("No fucking prompt returned from API");
             return generatedPrompt;
         } catch (err) {
@@ -326,34 +307,40 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const slots = thumbnailContainer.querySelectorAll('img.thumbnail');
-        slots.forEach((thumb, index) => {
-            const imageUrl = imageHistory[index];
-            thumb.onclick = null;
-            thumb.classList.remove('selected');
-            thumb.classList.remove('placeholder');
-
-            if (imageUrl) {
-                thumb.src = imageUrl;
-                thumb.title = promptHistory[index] || 'No prompt available';
-                thumb.onclick = () => showHistoricalImage(index);
-                const currentImgSrc = document.getElementById(`screensaver-${currentImage}`).src;
-                if (imageUrl === currentImgSrc) {
-                    thumb.classList.add('selected');
-                }
-            } else {
-                thumb.src = EMPTY_THUMBNAIL;
-                thumb.title = '';
-                thumb.classList.add('placeholder');
+        thumbnailContainer.innerHTML = '';
+        imageHistory.forEach((imageUrl, index) => {
+            const thumb = document.createElement('img');
+            thumb.src = imageUrl;
+            thumb.classList.add('thumbnail');
+            thumb.title = promptHistory[index] || 'No prompt available';
+            thumb.alt = "Thumbnail Image";
+            thumb.style.opacity = '1';
+            thumb.onerror = () => {
+                console.log(`Thumbnail ${index + 1} failed to load, using fallback:`, imageUrl);
+                thumb.src = "https://via.placeholder.com/160x90?text=Image+Failed";
+                thumb.style.opacity = '1';
+            };
+            thumb.onload = () => {
+                console.log(`Thumbnail ${index + 1} loaded successfully:`, imageUrl);
+            };
+            thumb.onclick = () => showHistoricalImage(index);
+            const currentImgSrc = document.getElementById(`screensaver-${currentImage}`).src;
+            if (imageUrl === currentImgSrc) {
+                thumb.classList.add('selected');
+                console.log("Highlighted thumbnail as selected:", imageUrl);
             }
+            thumbnailContainer.appendChild(thumb);
+            console.log(`Added thumbnail ${index + 1}/${imageHistory.length} to DOM:`, thumb.src);
         });
 
+        // keep the view scrolled to the latest thumbnail
         thumbnailContainer.scrollTo({ left: thumbnailContainer.scrollWidth, behavior: 'smooth' });
+        console.log("Updated thumbnail gallery with", imageHistory.length, "images. DOM count:", thumbnailContainer.children.length);
+
         const offsetWidth = thumbnailContainer.offsetWidth;
         thumbnailContainer.style.display = 'none';
         thumbnailContainer.offsetHeight;
         thumbnailContainer.style.display = 'flex';
-        console.log("Updated thumbnail gallery with", imageHistory.length, "images. DOM count:", thumbnailContainer.children.length);
         console.log("Forced DOM reflow to ensure rendering. Container offsetWidth:", offsetWidth);
     }
 
@@ -510,13 +497,14 @@ document.addEventListener("DOMContentLoaded", () => {
     function toggleControls() {
         controlsHidden = !controlsHidden;
         const controls = document.querySelector('.screensaver-controls');
+        const thumbnails = document.querySelector('.screensaver-thumbnails');
         if (controlsHidden) {
             controls.classList.add('hidden-panel');
-            thumbnailsWrapper.classList.add('hidden-panel');
+            thumbnails.classList.add('hidden-panel');
             hideButton.innerHTML = "🙉";
         } else {
             controls.classList.remove('hidden-panel');
-            thumbnailsWrapper.classList.remove('hidden-panel');
+            thumbnails.classList.remove('hidden-panel');
             hideButton.innerHTML = "🙈";
         }
         window.showToast(controlsHidden ? "Controls hidden" : "Controls visible");
@@ -702,12 +690,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && screensaverActive && controlsHidden) {
-            e.stopPropagation();
-            e.preventDefault();
-            const controls = document.querySelector('.screensaver-controls');
-            controls.classList.add('hidden-panel');
-            thumbnailsWrapper.classList.add('hidden-panel');
+        if (!screensaverActive) return;
+        switch (e.key) {
+            case 'p': togglePause(); break;
+            case 's': saveImage(); break;
+            case 'c': copyImage(); break;
+            case 'f': toggleFullscreen(); break;
+            case 'Escape':
+                if (controlsHidden) toggleControls();
+                else stopScreensaver();
+                break;
+            case 'h': toggleControls(); break;
+            case 'r': toggleAutoPrompt(); break;
         }
     });
 

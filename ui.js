@@ -148,25 +148,23 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             const currentSession = Storage.getCurrentSession();
-            const preferredModel = currentSession?.model || Storage.getDefaultModel();
-            if (preferredModel) {
-                const exists = Array.from(modelSelect.options).some(option => option.value === preferredModel);
-                if (exists) {
-                    modelSelect.value = preferredModel;
+            if (currentSession && currentSession.model) {
+                const modelExists = Array.from(modelSelect.options).some(option => option.value === currentSession.model);
+                if (modelExists) {
+                    modelSelect.value = currentSession.model;
                 } else {
                     const tempOpt = document.createElement("option");
-                    tempOpt.value = preferredModel;
-                    tempOpt.textContent = `${preferredModel} (Previously Selected - May Be Unavailable)`;
+                    tempOpt.value = currentSession.model;
+                    tempOpt.textContent = `${currentSession.model} (Previously Selected - May Be Unavailable)`;
                     tempOpt.title = "This model may no longer be available";
                     modelSelect.appendChild(tempOpt);
-                    modelSelect.value = preferredModel;
-                    console.warn(`Model ${preferredModel} not found in fetched list. Added as unavailable option.`);
+                    modelSelect.value = currentSession.model;
+                    console.warn(`Model ${currentSession.model} not found in fetched list. Added as unavailable option.`);
                 }
             }
 
             if (!modelSelect.value && modelSelect.options.length > 0) {
-                const unityOption = Array.from(modelSelect.options).find(opt => opt.value === "unity");
-                const firstModel = unityOption ? unityOption.value : modelSelect.options[0].value;
+                const firstModel = modelSelect.options[0].value;
                 modelSelect.value = firstModel;
                 if (currentSession) {
                     Storage.setSessionModel(currentSession.id, firstModel);
@@ -176,13 +174,12 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("Failed to fetch text models:", err);
             modelSelect.innerHTML = "";
             const currentSession = Storage.getCurrentSession();
-            const fallbackModel = currentSession?.model || Storage.getDefaultModel();
-            if (fallbackModel) {
+            if (currentSession && currentSession.model) {
                 const sessOpt = document.createElement("option");
-                sessOpt.value = fallbackModel;
-                sessOpt.textContent = `${fallbackModel} (From Session - May Be Unavailable)`;
+                sessOpt.value = currentSession.model;
+                sessOpt.textContent = `${currentSession.model} (From Session - May Be Unavailable)`;
                 modelSelect.appendChild(sessOpt);
-                modelSelect.value = fallbackModel;
+                modelSelect.value = currentSession.model;
             }
         }
     }
