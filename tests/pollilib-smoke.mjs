@@ -54,7 +54,7 @@ await step('textModels returns JSON', async () => {
 });
 
 await step('text(prompt) returns string', async () => {
-  const out = await textGet('Say ok', { model: 'openai-mini', referrer: REFERRER }, client);
+  const out = await textGet('Say ok', { model: 'openai-mini' }, client);
   if (typeof out !== 'string' || !out.length) throw new Error('empty text output');
   return `len=${out.length}`;
 });
