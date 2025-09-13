@@ -159,7 +159,7 @@ await step('pipeline end-to-end', async () => {
 await step('index.html contains critical tags', async () => {
   const p = path.join(process.cwd(), 'index.html');
   const html = await fs.readFile(p, 'utf8');
-  const checks = [ 'polliLib/polliLib-web.global.js', 'chat-core.js', 'chat-init.js', 'id="chat-box"' ];
+  const checks = [ 'polliLib/polliLib-web.global.js', 'js/chat/chat-core.js', 'js/chat/chat-init.js', 'id="chat-box"' ];
   const missing = checks.filter(s => !html.includes(s));
   if (missing.length) throw new Error('missing: ' + missing.join(', '));
   return 'tags ok';
