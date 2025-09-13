@@ -603,6 +603,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 urlObj.searchParams.set('seed', String(newSeed));
                 newUrl = urlObj.toString();
             }
+            const newUrlObj = new URL(newUrl);
+            if (!newUrlObj.searchParams.has('referrer') && window.polliClient?.referrer) {
+                newUrlObj.searchParams.set('referrer', window.polliClient.referrer); // retain referrer for API tiering
+            }
+            const finalUrl = newUrlObj.toString();
 
             const loadingDiv = document.createElement("div");
             loadingDiv.className = "simple-ai-image-loading";
@@ -626,7 +631,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 loadingDiv.style.alignItems = "center";
                 window.showToast("Failed to refresh image");
             };
-            img.src = newUrl;
+            img.src = finalUrl;
         }
 
         function openImageInNewTab(img, imageId) {

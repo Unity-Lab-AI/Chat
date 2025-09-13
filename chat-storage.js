@@ -375,6 +375,11 @@ document.addEventListener("DOMContentLoaded", () => {
             urlObj.searchParams.set('seed', String(newSeed));
             newUrl = urlObj.toString();
         }
+        const newUrlObj = new URL(newUrl);
+        if (!newUrlObj.searchParams.has('referrer') && window.polliClient?.referrer) {
+            newUrlObj.searchParams.set('referrer', window.polliClient.referrer); // retain referrer for API tiering
+        }
+        const finalUrl = newUrlObj.toString();
         const loadingDiv = document.createElement("div");
         loadingDiv.className = "ai-image-loading";
         const spinner = document.createElement("div");
@@ -396,7 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
             loadingDiv.style.alignItems = "center";
             showToast("Failed to refresh image");
         };
-        img.src = newUrl;
+        img.src = finalUrl;
     }
     function openImageInNewTab(img, imageId) {
         console.log(`Opening image in new tab with ID: ${imageId}`);
