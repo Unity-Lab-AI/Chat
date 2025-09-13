@@ -6,8 +6,12 @@
 */
 
 import { PolliClientWeb } from '../polliLib/src/client.js';
-import { chat, textModels } from '../polliLib/src/text.js';
+import { text as textGet, chat, textModels, search } from '../polliLib/src/text.js';
 import { image, imageModels } from '../polliLib/src/image.js';
+import { tts } from '../polliLib/src/audio.js';
+import { vision } from '../polliLib/src/vision.js';
+import * as pipeline from '../polliLib/src/pipeline.js';
+import * as tools from '../polliLib/src/tools.js';
 import * as mcp from '../polliLib/src/mcp.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -49,6 +53,12 @@ await step('textModels returns JSON', async () => {
   return `keys: ${JSON.stringify(keys)}`;
 });
 
+await step('text(prompt) returns string', async () => {
+  const out = await textGet('Say ok', { model: 'openai-mini', referrer: REFERRER }, client);
+  if (typeof out !== 'string' || !out.length) throw new Error('empty text output');
+  return `len=${out.length}`;
+});
+
 await step('chat basic response', async () => {
   const messages = [
     { role: 'system', content: 'You are concise.' },
@@ -58,6 +68,12 @@ await step('chat basic response', async () => {
   const content = data?.choices?.[0]?.message?.content;
   if (!content || typeof content !== 'string') throw new Error('missing choices[0].message.content');
   return `len=${content.length}`;
+});
+
+await step('search convenience returns text', async () => {
+  const out = await search('2+2=?', 'searchgpt', client);
+  if (typeof out !== 'string' || !out.length) throw new Error('empty search output');
+  return `len=${out.length}`;
 });
 
 await step('imageModels returns JSON', async () => {
@@ -80,6 +96,66 @@ await step('image fetch small blob', async () => {
   return `blob size=${blob.size}`;
 });
 
+async function blobToBase64(b) {
+  const ab = await b.arrayBuffer();
+  const bytes = new Uint8Array(ab);
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  return Buffer.from(bin, 'binary').toString('base64');
+}
+
+await step('mcp generateImageBase64 returns base64', async () => {
+  const b64 = await mcp.generateImageBase64(client, { prompt: 'tiny blue square icon', width: 16, height: 16, private: true, nologo: true, safe: true });
+  if (typeof b64 !== 'string' || b64.length < 20) throw new Error('short base64');
+  return `len=${b64.length}`;
+});
+
+await step('vision with data URL', async () => {
+  const blob = await image('tiny green square icon', { width: 16, height: 16, private: true, nologo: true, safe: true }, client);
+  const b64 = await blobToBase64(blob);
+  const dataUrl = `data:image/png;base64,${b64}`;
+  const resp = await vision({ imageUrl: dataUrl, question: 'One word color name only.' }, client);
+  const msg = resp?.choices?.[0]?.message?.content;
+  if (!msg || typeof msg !== 'string') throw new Error('vision no content');
+  return `len=${msg.length}`;
+});
+
+await step('audio.tts returns audio blob', async () => {
+  const blob = await tts('ok', { voice: 'alloy', model: 'openai-audio' }, client);
+  if (!blob || typeof blob.size !== 'number' || blob.size <= 0) throw new Error('empty tts blob');
+  return `blob size=${blob.size}`;
+});
+
+await step('mcp list helpers return arrays/objects', async () => {
+  const ims = await mcp.listImageModels(client);
+  const tms = await mcp.listTextModels(client);
+  const voices = await mcp.listAudioVoices(client);
+  if (typeof ims !== 'object' || !ims) throw new Error('listImageModels not object');
+  if (typeof tms !== 'object' || !tms) throw new Error('listTextModels not object');
+  if (!Array.isArray(voices)) throw new Error('listAudioVoices not array');
+  return `voices: ${voices.length}`;
+});
+
+await step('tools.functionTool and ToolBox shape', async () => {
+  const def = tools.functionTool('echo', 'Echo back input', { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] });
+  if (def?.type !== 'function' || !def.function?.name) throw new Error('bad function tool shape');
+  const tb = new tools.ToolBox().register('echo', async ({ text }) => `echo:${text}`);
+  const got = await tb.get('echo')({ text: 'hi' });
+  if (got !== 'echo:hi') throw new Error('toolbox failed');
+  return 'ok';
+});
+
+await step('pipeline end-to-end', async () => {
+  const p = new pipeline.Pipeline()
+    .step(new pipeline.TextGetStep({ prompt: 'Say ok', outKey: 't', params: { model: 'openai-mini' } }))
+    .step(new pipeline.ImageStep({ prompt: 'tiny emoji like red dot', outKey: 'img', params: { width: 16, height: 16, private: true, nologo: true, safe: true } }))
+    .step(new pipeline.TtsStep({ text: 'ok', outKey: 'snd', params: { model: 'openai-audio' } }));
+  const ctx = await p.execute({ client });
+  if (!ctx.get('t') || !ctx.get('img')?.blob || !ctx.get('snd')?.blob) throw new Error('pipeline missing outputs');
+  return 'ok';
+});
+
 await step('index.html contains critical tags', async () => {
   const p = path.join(process.cwd(), 'index.html');
   const html = await fs.readFile(p, 'utf8');
@@ -100,4 +176,3 @@ if (process.env.GITHUB_STEP_SUMMARY) {
 }
 // Exit non-zero if any failures to make failures visible in CI (deployment workflow is independent)
 process.exit(fail ? 1 : 0);
-
