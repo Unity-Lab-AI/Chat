@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
   # Manual trigger
   workflow_dispatch:
   # Optional: run when using GitHub merge queue
@@ -87,8 +84,7 @@ jobs:
   deploy:
     name: Deploy to Pages
     needs: build
-    # Do not deploy for pull_request events; only push/main, merge_group, dispatch
-    if: github.event_name != 'pull_request'
+    # Runs only on push to main, merge_group, or manual dispatch
     runs-on: ubuntu-latest
     environment:
       name: github-pages
