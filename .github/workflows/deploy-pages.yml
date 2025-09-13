@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   # Manual trigger
   workflow_dispatch:
   # Optional: run when using GitHub merge queue
@@ -19,7 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
+    name: Build and Upload Artifact
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -28,16 +32,29 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Summarize build
+        run: |
+          echo "# Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Event: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "Ref: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
       - name: Disable Jekyll
         run: echo > .nojekyll
 
-      # For this project there is no build step; deploy the repo root
+      # No bundling needed; publish repo root
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
 
-      - name: Deploy to GitHub Pages
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    # Do not deploy for pull_request events; only push/main, merge_group, dispatch
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy
         id: deploy
         uses: actions/deploy-pages@v4
-
