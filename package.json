@@ -1,6 +1,9 @@
 {
   "name": "unity-chat",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "test": "node tests/pollilib-smoke.mjs"
+  }
 }
 

@@ -1,9 +1,6 @@
 name: PolliLib Smoke Tests
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -29,5 +26,5 @@ jobs:
       - name: Run smoke tests
         env:
           POLLI_REFERRER: unityailab.com
-        run: node tests/pollilib-smoke.mjs
+        run: npm test
 
