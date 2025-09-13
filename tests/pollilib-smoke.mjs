@@ -169,9 +169,7 @@ await step('index.html contains critical tags', async () => {
 const { ok, fail, text } = summary();
 console.log('\n' + text + '\n');
 if (process.env.GITHUB_STEP_SUMMARY) {
-  const md = ['# PolliLib Smoke Tests', '', '```
-' + text + '
-```'].join('\n');
+  const md = ['# PolliLib Smoke Tests', '', '```', text, '```'].join('\n');
   await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, md + '\n');
 }
 // Exit non-zero if any failures to make failures visible in CI (deployment workflow is independent)
