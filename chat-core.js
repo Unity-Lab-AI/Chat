@@ -484,8 +484,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const HISTORY = 10;
         const end = currentSession.messages.length - 1;
         const start = Math.max(0, end - HISTORY);
+
+        // Ensure roles conform to OpenAI schema before sending to polliLib
+        const mapRole = (r) => {
+            if (!r) return null;
+            const s = String(r).toLowerCase();
+            if (s === 'ai') return 'assistant';
+            if (s === 'assistant' || s === 'user' || s === 'system') return s;
+            // Skip non-chat roles (e.g., tool) for this basic chat flow
+            return null;
+        };
+
         for (let i = start; i < end; i++) {
-            messages.push(currentSession.messages[i]);
+            const m = currentSession.messages[i];
+            const role = mapRole(m?.role);
+            const content = typeof m?.content === 'string' ? m.content : (m?.content != null ? String(m.content) : '');
+            if (role && content) messages.push({ role, content });
         }
 
         const lastUser = overrideContent || currentSession.messages[end]?.content;
