@@ -564,50 +564,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         function refreshImage(img, imageId) {
             console.log(`Refreshing image with ID: ${imageId} in simple mode`);
-            if (!img.src) {
-                window.showToast("No image source to refresh.");
+            const { url: finalUrl, error } = window.refreshPolliImage(img?.src, {
+                width: img.naturalWidth,
+                height: img.naturalHeight,
+            });
+            if (!finalUrl) {
+                window.showToast(error || "Failed to refresh image");
                 return;
             }
-            const urlObj = new URL(img.src);
-            if (!window.polliClient || !window.polliClient.imageBase) {
-                window.showToast("Image client not ready.");
-                return;
-            }
-            const baseOrigin = new URL(window.polliClient.imageBase).origin;
-            if (urlObj.origin !== baseOrigin) {
-                window.showToast("Can't refresh: not a polliLib image URL.");
-                return;
-            }
-            const newSeed = Math.floor(Math.random() * 1000000);
-            let prompt = '';
-            try {
-                const parts = urlObj.pathname.split('/');
-                const i = parts.indexOf('prompt');
-                if (i >= 0 && parts[i+1]) prompt = decodeURIComponent(parts[i+1]);
-            } catch {}
-            const width = Number(urlObj.searchParams.get('width')) || img.naturalWidth || 512;
-            const height = Number(urlObj.searchParams.get('height')) || img.naturalHeight || 512;
-            const model = urlObj.searchParams.get('model') || (document.getElementById('model-select')?.value || undefined);
-            let newUrl = img.src;
-            try {
-                if (window.polliLib && window.polliClient && prompt) {
-                    newUrl = window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                        prompt, width, height, seed: newSeed, nologo: true, model
-                    });
-                } else {
-                    urlObj.searchParams.set('seed', String(newSeed));
-                    newUrl = urlObj.toString();
-                }
-            } catch (e) {
-                console.warn('polliLib generateImageUrl failed; falling back to seed swap', e);
-                urlObj.searchParams.set('seed', String(newSeed));
-                newUrl = urlObj.toString();
-            }
-            const newUrlObj = new URL(newUrl);
-            if (!newUrlObj.searchParams.has('referrer') && window.polliClient?.referrer) {
-                newUrlObj.searchParams.set('referrer', window.polliClient.referrer); // retain referrer for API tiering
-            }
-            const finalUrl = newUrlObj.toString();
 
             const loadingDiv = document.createElement("div");
             loadingDiv.className = "simple-ai-image-loading";
