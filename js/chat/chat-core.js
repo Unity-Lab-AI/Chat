@@ -92,6 +92,30 @@ document.addEventListener("DOMContentLoaded", () => {
     let voiceInputBtn = null;
     let slideshowInterval = null;
 
+    let capabilities = window.pollinationsCaps || null;
+
+    async function ensureCapabilities() {
+        if (!capabilities && window.polliLib?.modelCapabilities) {
+            try {
+                capabilities = await window.polliLib.modelCapabilities();
+                window.pollinationsCaps = capabilities;
+            } catch (e) {
+                console.warn('capabilities fetch failed', e);
+                capabilities = {};
+            }
+        }
+    }
+
+    function applyCapabilities(model) {
+        const info = capabilities?.text?.[model] || {};
+        const hasAudio = !!info.audio;
+        if (voiceToggleBtn) voiceToggleBtn.disabled = !hasAudio;
+        if (voiceInputBtn) voiceInputBtn.disabled = !hasAudio;
+    }
+
+    window.updateCapabilityUI = applyCapabilities;
+    ensureCapabilities().then(() => applyCapabilities(modelSelect?.value));
+
     function normalize(str) {
         return str?.toLowerCase().trim() || "";
     }
@@ -486,6 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window._chatInternals) {
             window._chatInternals.voiceInputBtn = btn;
         }
+        if (modelSelect) applyCapabilities(modelSelect.value);
     }
 
     function loadVoices() {
@@ -752,8 +777,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            // Use polliLib OpenAI-compatible chat endpoint
-            const data = await (window.polliLib?.chat?.({ model, messages, tools: toolDefinitions }) ?? Promise.reject(new Error('polliLib not loaded')));
+            const capsInfo = capabilities?.text?.[model];
+            const chatParams = { model, messages };
+            if (capsInfo?.tools) chatParams.tools = toolDefinitions;
+            const data = await (window.polliLib?.chat?.(chatParams) ?? Promise.reject(new Error('polliLib not loaded')));
             loadingDiv.remove();
 
             const messageObj = data?.choices?.[0]?.message || {};
@@ -1015,6 +1042,8 @@ document.addEventListener("DOMContentLoaded", () => {
         voiceInputBtn,
         slideshowInterval,
         setVoiceInputButton,
+        applyCapabilities,
+        capabilities,
         toggleAutoSpeak,
         updateVoiceToggleUI,
         speakMessage,
