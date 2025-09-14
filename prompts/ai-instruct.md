@@ -116,6 +116,23 @@ open the screensaver
 
 ---
 
+## JSON Tools
+
+- As an alternative to fenced blocks, respond with a JSON object to invoke tools.
+- The object must include a `tool` field:
+  - `image` with a `prompt` string to generate an image.
+  - `tts` with a `text` string for text-to-speech.
+  - `ui` with a `command` string for interface actions.
+- Example:
+
+```json
+{"tool":"image","prompt":"a glowing neon cityscape at night with flying cars"}
+```
+
+- Do not include extra commentary outside the JSON object.
+
+---
+
 ## Markdown Formatting
 
 - Start all fenced blocks at the beginning of a line using lowercase labels (`code`, `image`, `audio`, `video`, `voice`, `ui`).
