@@ -20,36 +20,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tests:
-    name: Run Test Suites
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Run tests
-        run: |
-          npm test
-
-      - name: Capture test status
-        id: capture
-        run: |
-          cat tests/test-results.json
-          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('tests/test-results.json','utf8'));fs.appendFileSync(process.env.GITHUB_OUTPUT,`status=${r.status}\n`);"
-
-      - name: Report test summary
-        run: |
-          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('tests/test-results.json','utf8'));console.log('# Test Summary');console.log('PolliLib',r.groups.pollilib.passed,'/',r.groups.pollilib.total);console.log('Site',r.groups.site.passed,'/',r.groups.site.total);console.log('Overall',r.passed,'/',r.total,'->',r.status);" >> $GITHUB_STEP_SUMMARY
-
   build:
     name: Build and Upload Artifact
-    needs: tests
-    if: needs.tests.outputs.status != 'fail'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -74,6 +46,35 @@ jobs:
         with:
           name: github-pages
           path: .
+
+  tests:
+    name: Run Test Suites
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.capture.outputs.status }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run tests
+        run: |
+          npm test
+
+      - name: Capture test status
+        id: capture
+        run: |
+          cat tests/test-results.json
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('tests/test-results.json','utf8'));fs.appendFileSync(process.env.GITHUB_OUTPUT,`status=${r.status}\n`);"
+
+      - name: Report test summary
+        run: |
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('tests/test-results.json','utf8'));console.log('# Test Summary');console.log('PolliLib',r.groups.pollilib.passed,'/',r.groups.pollilib.total);console.log('Site',r.groups.site.passed,'/',r.groups.site.total);console.log('Overall',r.passed,'/',r.total,'->',r.status);" >> $GITHUB_STEP_SUMMARY
 
   report-build-status:
     name: Report Build Status
@@ -111,7 +112,8 @@ jobs:
 
   deploy:
     name: Deploy to Pages
-    needs: build
+    needs: [build, tests]
+    if: needs.tests.outputs.status != 'fail'
     # Runs only on push to main, merge_group, or manual dispatch
     runs-on: ubuntu-latest
     environment:
