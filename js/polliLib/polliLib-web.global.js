@@ -71,6 +71,7 @@
 
   // --- helpers ---
   const bool = v => (v == null ? undefined : (v ? 'true' : 'false'));
+  const sleep = ms => new Promise(res => setTimeout(res, ms));
   function base64FromArrayBuffer(ab) {
     const bytes = new Uint8Array(ab);
     let binary = '';
@@ -83,7 +84,7 @@
   }
 
   // --- image.js ---
-  async function image(prompt, { model, seed, width, height, image: imgUrl, nologo, private: priv, enhance, safe, referrer } = {}, client = getDefaultClient()) {
+  async function image(prompt, { model, seed, width, height, image: imgUrl, nologo, private: priv, enhance, safe, referrer, json, retries = 5, retryDelayMs = 1000 } = {}, client = getDefaultClient()) {
     const url = `${client.imageBase}/prompt/${encodeURIComponent(prompt)}`;
     const params = {};
     if (model) params.model = model;
@@ -96,8 +97,24 @@
     if (enhance != null) params.enhance = bool(enhance);
     if (safe != null) params.safe = bool(safe);
     if (referrer) params.referrer = referrer;
-    const r = await client.get(url, { params });
+    if (json) params.json = 'true';
+    const headers = json ? { Accept: 'application/json' } : {};
+    const r = await client.get(url, { params, headers });
     if (!r.ok) throw new Error(`image error ${r.status}`);
+    const ct = r.headers.get('content-type') ?? '';
+    if (ct.includes('application/json')) {
+      const data = await r.json();
+      if (json) return data;
+      if (data?.url) {
+        const ir = await fetch(data.url);
+        if (ir.ok) return await ir.blob();
+      }
+      if (retries > 0) {
+        await sleep(retryDelayMs);
+        return await image(prompt, { model, seed, width, height, image: imgUrl, nologo, private: priv, enhance, safe, referrer, json, retries: retries - 1, retryDelayMs }, client);
+      }
+      throw new Error('image pending');
+    }
     return await r.blob();
   }
   async function imageModels(client = getDefaultClient()) {
@@ -131,7 +148,7 @@
       return await r.text();
     }
   }
-  async function chat({ model, messages, seed, temperature, top_p, presence_penalty, frequency_penalty, max_tokens, stream, private: priv, tools, tool_choice, referrer }, client = getDefaultClient()) {
+  async function chat({ model, messages, seed, temperature, top_p, presence_penalty, frequency_penalty, max_tokens, stream, private: priv, tools, tool_choice, referrer, json }, client = getDefaultClient()) {
     const url = `${client.textBase}/openai`;
     const body = { model, messages };
     if (seed != null) body.seed = seed;
@@ -144,6 +161,7 @@
     if (tools) body.tools = tools;
     if (tool_choice) body.tool_choice = tool_choice;
     if (referrer) body.referrer = referrer;
+    if (json) body.json = true;
     if (stream) {
       body.stream = true;
       const r = await client.postJson(url, body, { headers: { 'Accept': 'text/event-stream' } });
@@ -266,6 +284,14 @@
   async function listTextModels(client) { return await textModels(client); }
   async function listAudioVoices(client) { const models = await textModels(client); return models?.['openai-audio']?.voices ?? []; }
 
+  async function modelCapabilities(client = getDefaultClient()) {
+    const [image, text] = await Promise.all([
+      imageModels(client).catch(() => ({})),
+      textModels(client).catch(() => ({})),
+    ]);
+    return { image, text, audio: text?.['openai-audio'] ?? {} };
+  }
+
   // --- pipeline.js ---
   class Context extends Map {}
   class Pipeline { constructor() { this.steps = []; } step(s) { this.steps.push(s); return this; } async execute({ client, context = new Context() } = {}) { for (const s of this.steps) await s.run({ client, context }); return context; } }
@@ -282,7 +308,7 @@
   const api = {
     configure,
     image, text, chat, search, tts, stt, vision,
-    imageModels, textModels, imageFeed, textFeed,
+    imageModels, textModels, imageFeed, textFeed, modelCapabilities,
     tools: { functionTool, ToolBox, chatWithTools },
     mcp: { serverName, toolDefinitions, generateImageUrl, generateImageBase64, listImageModels, listTextModels, listAudioVoices },
     pipeline: { Context, Pipeline, TextGetStep, ImageStep, TtsStep, VisionUrlStep },

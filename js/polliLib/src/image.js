@@ -1,9 +1,11 @@
 import { getDefaultClient } from './client.js';
 
 const bool = v => (v == null ? undefined : (v ? 'true' : 'false'));
+const sleep = ms => new Promise(res => setTimeout(res, ms));
 
 export async function image(prompt, {
   model, seed, width, height, image, nologo, private: priv, enhance, safe, referrer,
+  json, retries = 5, retryDelayMs = 1000,
 } = {}, client = getDefaultClient()) {
   const url = `${client.imageBase}/prompt/${encodeURIComponent(prompt)}`;
   const params = {};
@@ -17,9 +19,31 @@ export async function image(prompt, {
   if (enhance != null) params.enhance = bool(enhance);
   if (safe != null) params.safe = bool(safe);
   if (referrer) params.referrer = referrer;
+  if (json) params.json = 'true';
 
-  const r = await client.get(url, { params });
+  const headers = json ? { Accept: 'application/json' } : {};
+
+  const r = await client.get(url, { params, headers });
   if (!r.ok) throw new Error(`image error ${r.status}`);
+
+  const ct = r.headers.get('content-type') ?? '';
+  if (ct.includes('application/json')) {
+    const data = await r.json();
+    if (json) return data;
+    if (data?.url) {
+      const ir = await fetch(data.url);
+      if (ir.ok) return await ir.blob();
+    }
+    if (retries > 0) {
+      await sleep(retryDelayMs);
+      return await image(prompt, {
+        model, seed, width, height, image, nologo, private: priv,
+        enhance, safe, referrer, json, retries: retries - 1, retryDelayMs,
+      }, client);
+    }
+    throw new Error('image pending');
+  }
+
   return await r.blob();
 }
 
