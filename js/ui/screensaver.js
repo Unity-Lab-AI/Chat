@@ -22,6 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const thumbLeftButton = document.getElementById("screensaver-thumb-left");
     const thumbRightButton = document.getElementById("screensaver-thumb-right");
 
+    const polliClient = window.polliClient || window.polliLib.getDefaultClient();
+
     let screensaverActive = false;
     let imageInterval = null;
     let promptInterval = null;
@@ -141,12 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchImageModels() {
         try {
-            const res = await window.pollinationsFetch("https://image.pollinations.ai/models", {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-                cache: "no-store"
-            });
-            const models = await res.json();
+            const models = await window.polliLib.imageModels(polliClient);
             modelSelect.innerHTML = "";
             if (Array.isArray(models) && models.length > 0) {
                 models.forEach(name => {
@@ -194,14 +191,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const metaPrompt = "Generate exactly one short-125-character, new, fucked up and explicit wild image prompt as text only of outlandish and psychologically thrilling image. i.e. demented, evil, psychotic art.";
         const textModel = document.getElementById("model-select")?.value;
         const seed = generateSeed();
-        const apiUrl = `https://text.pollinations.ai/${encodeURIComponent(metaPrompt)}?seed=${seed}&safe=false${textModel ? `&model=${encodeURIComponent(textModel)}` : ""}`;
         try {
-            const response = await window.pollinationsFetch(apiUrl, {
-                method: "GET",
-                headers: { Accept: "text/plain" },
-                cache: "no-store"
-            });
-            const generatedPrompt = await response.text();
+            const generatedPrompt = await window.polliLib.text(metaPrompt, {
+                seed,
+                model: textModel,
+                private: false
+            }, polliClient);
             if (!generatedPrompt) throw new Error("No fucking prompt returned from API");
             return generatedPrompt;
         } catch (err) {
@@ -255,7 +250,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const enhance = settings.enhance;
         const priv = settings.priv;
 
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&model=${model}&nologo=true&private=${priv}&enhance=${enhance}&nolog=true&referrer=unityailab.com`;
+        const url = window.polliLib.mcp.generateImageUrl(polliClient, {
+            prompt,
+            width,
+            height,
+            seed,
+            model,
+            nologo: true,
+            private: priv,
+            enhance,
+            safe: false
+        });
         console.log("Generated new image URL:", url);
 
         const nextImage = currentImage === 'image1' ? 'image2' : 'image1';
