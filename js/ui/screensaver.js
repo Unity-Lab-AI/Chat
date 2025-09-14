@@ -270,8 +270,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
                 }
             } catch (e) { console.warn('polliLib generateImageUrl failed', e); }
-            // Fallback to placeholder if polliLib not available
-            return "https://via.placeholder.com/512?text=Image+Unavailable";
+            console.error('polliLib not available; no image generated');
+            return "";
         })();
         console.log("Generated new image URL via polliLib:", url);
 
@@ -297,20 +297,15 @@ document.addEventListener("DOMContentLoaded", () => {
         nextImgElement.onload = () => handleImageLoad("Image loaded successfully, added to history:");
 
         nextImgElement.onerror = () => {
-            const fallbackUrl = "https://via.placeholder.com/512?text=Image+Failed";
-            nextImgElement.src = fallbackUrl;
-            nextImgElement.onload = () => handleImageLoad("Image failed, added fallback to history:");
-            nextImgElement.onerror = () => {
-                console.error("Fallback image also failed to load.");
-            };
+            console.error("Image failed to load.");
         };
 
         try {
+            if (!url) throw new Error("No image URL");
             await preloadImage(url);
             nextImgElement.src = url;
         } catch (err) {
-            const fallbackUrl = "https://via.placeholder.com/512?text=Image+Failed";
-            nextImgElement.src = fallbackUrl;
+            console.error("Failed to fetch new image:", err);
         } finally {
             isTransitioning = false;
         }
@@ -381,7 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
             updateThumbnailHistory();
         };
         nextImgElement.onerror = () => {
-            nextImgElement.src = "https://via.placeholder.com/512?text=Image+Failed";
+            console.error("Historical image failed to load.");
             nextImgElement.style.opacity = '1';
             currentImage = nextImage;
             updateThumbnailHistory();

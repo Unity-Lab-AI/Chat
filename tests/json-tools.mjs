@@ -64,8 +64,8 @@ async function dispatch(json) {
   return await fn(obj);
 }
 
-await dispatch('{"tool":"image","prompt":"tiny green square"}');
-await dispatch('{"tool":"tts","text":"ok"}');
+await dispatch('{"tool":"image","prompt":"apple"}');
+await dispatch('{"tool":"tts","text":"apple"}');
 await dispatch('{"tool":"ui","command":"ping"}');
 
 assert(imageUrl && imageUrl.startsWith('http'), 'image url via polliLib');

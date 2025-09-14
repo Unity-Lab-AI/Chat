@@ -656,11 +656,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
                     voiceChatImage.src = url;
                 } else {
-                    voiceChatImage.src = "https://via.placeholder.com/512?text=Image+Unavailable";
+                    console.error("polliLib not available; cannot generate voice chat image");
                 }
             } catch (e) {
                 console.warn('polliLib generateImageUrl failed', e);
-                voiceChatImage.src = "https://via.placeholder.com/512?text=Image+Unavailable";
             }
             voiceChatImage.dataset.imageId = imageId;
             voiceChatImage.onload = () => {

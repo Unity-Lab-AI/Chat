@@ -10,10 +10,10 @@ const client = new PolliClientWeb({ referrer: 'unityailab.com' });
 const response = [
   'Hello',
   '```image',
-  'tiny red square',
+  'an apple',
   '```',
   '```audio',
-  'say ok',
+  'say apple',
   '```',
   '```ui',
   'console.log("ui done")',
@@ -79,11 +79,11 @@ const sanitized = sanitizeMarkdown(content);
 const html = marked.parse(sanitized);
 
 assert(imageUrls.length === 1 && imageUrls[0].startsWith('http'), 'Image URL via polliLib');
-assert(!sanitized.includes('tiny red square'), 'Image prompt hidden');
+assert(!sanitized.includes('an apple'), 'Image prompt hidden');
 
 const blob = audioBlobs[0];
 assert(blob && typeof blob.size === 'number' && blob.size > 0, 'Audio blob generated');
-assert(!sanitized.includes('say ok'), 'Audio prompt hidden');
+assert(!sanitized.includes('say apple'), 'Audio prompt hidden');
 
 assert(uiExecuted, 'UI command executed');
 assert(!sanitized.includes('console.log("ui done")'), 'UI command hidden');
