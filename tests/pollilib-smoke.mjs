@@ -56,27 +56,33 @@ await step('textModels returns JSON', async () => {
   return `keys: ${JSON.stringify(keys)}`;
 });
 
-await step('text(prompt) returns string', async () => {
+await step('text(prompt) mentions apple', async () => {
   const out = await textGet('apple', { model: 'openai-mini' }, client);
-  if (typeof out !== 'string' || !out.length) throw new Error('empty text output');
-  return `len=${out.length}`;
+  if (typeof out !== 'string' || !out.toLowerCase().includes('apple')) {
+    throw new Error('text output missing apple');
+  }
+  return `ok`;
 });
 
-await step('chat basic response', async () => {
+await step('chat basic response mentions apple', async () => {
   const messages = [
     { role: 'system', content: 'You are concise.' },
     { role: 'user', content: 'apple' }
   ];
   const data = await chat({ messages, /* model omitted to use server default */ }, client);
   const content = data?.choices?.[0]?.message?.content;
-  if (!content || typeof content !== 'string') throw new Error('missing choices[0].message.content');
-  return `len=${content.length}`;
+  if (!content || typeof content !== 'string' || !content.toLowerCase().includes('apple')) {
+    throw new Error('chat response missing apple');
+  }
+  return 'ok';
 });
 
-await step('search convenience returns text', async () => {
+await step('search convenience mentions apple', async () => {
   const out = await search('apple', 'searchgpt', client);
-  if (typeof out !== 'string' || !out.length) throw new Error('empty search output');
-  return `len=${out.length}`;
+  if (typeof out !== 'string' || !out.toLowerCase().includes('apple')) {
+    throw new Error('search output missing apple');
+  }
+  return 'ok';
 });
 
 await step('imageModels returns JSON', async () => {
@@ -114,13 +120,16 @@ await step('mcp generateImageBase64 returns base64', async () => {
   return `len=${b64.length}`;
 });
 
-await step('vision with data URL', async () => {
+await step('vision identifies apple image', async () => {
   const blob = await image('apple', { width: 16, height: 16, private: true, nologo: true, safe: true }, client);
   const b64 = await blobToBase64(blob);
   const dataUrl = `data:image/png;base64,${b64}`;
   const resp = await vision({ imageUrl: dataUrl, question: 'What fruit is this?' }, client);
   const msg = resp?.choices?.[0]?.message?.content;
-  return msg ? `len=${msg.length}` : 'no content';
+  if (!msg || !msg.toLowerCase().includes('apple')) {
+    throw new Error('vision response missing apple');
+  }
+  return 'ok';
 });
 
 await step('audio.tts returns audio blob', async () => {

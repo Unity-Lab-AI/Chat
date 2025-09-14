@@ -397,7 +397,7 @@ document.addEventListener("DOMContentLoaded", () => {
             updateThumbnailHistory();
         };
         nextImgElement.onerror = () => {
-            nextImgElement.src = "https://via.placeholder.com/512?text=Image+Failed";
+            nextImgElement.src = EMPTY_THUMBNAIL;
             nextImgElement.style.opacity = '1';
             currentImage = nextImage;
             updateThumbnailHistory();
