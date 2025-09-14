@@ -119,22 +119,30 @@ tell me a joke in a calm tone
 
 ## JSON Tools
 
-- As an alternative to fenced blocks, respond with a JSON object to invoke tools.
-- The object must include a `tool` field:
-  - `image` with a `prompt` string to generate an image.
-  - `tts` with a `text` string for text-to-speech.
-  - `ui` with a `command` object that follows `docs/ui-command.schema.json`.
-- Example:
+- As an alternative to fenced blocks, respond with a JSON object.
+- The object may include:
+  - `tool` to invoke a tool (`image`, `tts`, or `ui`).
+  - `text` for plain responses.
+  - `image` or `images` with prompt strings to generate images.
+  - `audio` with text for text-to-speech.
+  - `command`/`ui` objects that follow `docs/ui-command.schema.json`.
+- Examples:
 
 ```json
 {"tool":"image","prompt":"a glowing neon cityscape at night with flying cars"}
 ```
 
 ```json
-{"tool":"ui","command":{"action":"openScreensaver"}}
+{"text":"Hello there"}
 ```
 
+```json
+{"images":["a tiny house"],"text":"Here you go"}
+```
+
+- Always return valid JSON (double quotes, no trailing commas).
 - Do not include extra commentary outside the JSON object.
+- If you must send plain text, wrap it as `{ "text": "..." }`.
 
 ---
 

@@ -421,17 +421,60 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
     async function handleToolJson(raw, { imageUrls, audioUrls }) {
-        try {
-            const obj = JSON.parse(raw);
+        const obj = (window.repairJson || (() => ({ text: raw })))(raw);
+        let handled = false;
+
+        if (obj.tool) {
             const fn = toolbox.get(obj.tool);
-            if (!fn) return { handled: false, text: raw };
-            const res = await fn(obj);
-            if (res?.imageUrl) imageUrls.push(res.imageUrl);
-            if (res?.audioUrl) audioUrls.push(res.audioUrl);
-            return { handled: true, text: res?.text || '' };
-        } catch {
-            return { handled: false, text: raw };
+            if (fn) {
+                try {
+                    const res = await fn(obj);
+                    if (res?.imageUrl) imageUrls.push(res.imageUrl);
+                    if (res?.audioUrl) audioUrls.push(res.audioUrl);
+                    handled = true;
+                    return { handled: true, text: res?.text || '' };
+                } catch (e) {
+                    console.warn('tool execution failed', e);
+                }
+            }
         }
+
+        const imgPrompts = obj.image ? [obj.image] : Array.isArray(obj.images) ? obj.images : [];
+        for (const prompt of imgPrompts) {
+            if (!(window.polliLib && window.polliClient) || !prompt) continue;
+            try {
+                const url = window.polliLib.mcp.generateImageUrl(window.polliClient, { prompt });
+                imageUrls.push(url);
+                handled = true;
+            } catch (e) {
+                console.warn('polliLib generateImageUrl failed', e);
+            }
+        }
+
+        const audioText = obj.audio || obj.tts;
+        if (audioText && window.polliLib && window.polliClient) {
+            try {
+                const blob = await window.polliLib.tts(audioText, { model: 'openai-audio' }, window.polliClient);
+                const url = URL.createObjectURL(blob);
+                audioUrls.push(url);
+                handled = true;
+            } catch (e) {
+                console.warn('polliLib tts failed', e);
+            }
+        }
+
+        const command = obj.ui || obj.command;
+        if (command) {
+            if (validateUICommand(command)) {
+                try { executeCommand(command); } catch (e) { console.warn('executeCommand failed', e); }
+                handled = true;
+            } else {
+                console.warn('invalid ui command', command);
+            }
+        }
+
+        const text = typeof obj.text === 'string' ? obj.text : raw;
+        return { handled, text };
     }
 
     function handleVoiceCommand(text) {
