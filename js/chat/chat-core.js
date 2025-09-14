@@ -260,37 +260,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const polliTools = window.polliLib?.tools;
-    const toolDefinitions = polliTools ? [
-        polliTools.functionTool('image', 'Generate an image', {
-            type: 'object',
-            properties: { prompt: { type: 'string', description: 'Image description' } },
-            required: ['prompt']
-        }),
-        polliTools.functionTool('tts', 'Convert text to speech', {
-            type: 'object',
-            properties: { text: { type: 'string', description: 'Text to speak' } },
-            required: ['text']
-        }),
-        polliTools.functionTool('ui', 'Execute a UI command', {
-            type: 'object',
-            properties: { command: { type: 'string', description: 'Command to run' } },
-            required: ['command']
-        })
-    ] : [];
 
     const toolbox = polliTools ? new polliTools.ToolBox() : { register() { return this; }, get() { return null; } };
     toolbox
         .register('image', async ({ prompt }) => {
             if (!(window.polliLib && window.polliClient)) return {};
             try {
-                const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                    prompt,
-                    width: 512,
-                    height: 512,
-                    private: true,
-                    nologo: true,
-                    safe: true
-                });
+                const url = window.polliLib.mcp.generateImageUrl(window.polliClient, { prompt });
                 return { imageUrl: url };
             } catch (e) {
                 console.warn('polliLib generateImageUrl failed', e);
@@ -603,7 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             // Use polliLib OpenAI-compatible chat endpoint
-            const data = await (window.polliLib?.chat?.({ model, messages, tools: toolDefinitions }) ?? Promise.reject(new Error('polliLib not loaded')));
+            const data = await (window.polliLib?.chat?.({ model, messages }) ?? Promise.reject(new Error('polliLib not loaded')));
             loadingDiv.remove();
 
             const messageObj = data?.choices?.[0]?.message || {};
@@ -654,14 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 await processPatterns(window.imagePatterns || [], async prompt => {
                     if (!(window.polliLib && window.polliClient)) return;
                     try {
-                        const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                            prompt,
-                            width: 512,
-                            height: 512,
-                            private: true,
-                            nologo: true,
-                            safe: true
-                        });
+                        const url = window.polliLib.mcp.generateImageUrl(window.polliClient, { prompt });
                         imageUrls.push(url);
                     } catch (e) {
                         console.warn('polliLib generateImageUrl failed', e);

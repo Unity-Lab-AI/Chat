@@ -642,18 +642,11 @@ document.addEventListener("DOMContentLoaded", () => {
             imagePrompt = imagePrompt.substring(0, 100);
         }
         function updateImage() {
-            const seed = Math.floor(Math.random() * 1000000);
             const imageId = `voice-img-${Date.now()}`;
             localStorage.setItem(`voiceImageId_${imageId}`, imageId);
             try {
                 if (window.polliLib && window.polliClient) {
-                    const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                        prompt: imagePrompt,
-                        width: 512,
-                        height: 512,
-                        seed,
-                        nologo: true
-                    });
+                    const url = window.polliLib.mcp.generateImageUrl(window.polliClient, { prompt: imagePrompt });
                     voiceChatImage.src = url;
                 }
             } catch (e) {

@@ -168,19 +168,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     fetchImageModels();
 
-    function generateSeed() {
-        return Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-    }
-
-    function getDimensions(aspect) {
-        switch (aspect) {
-            case "widescreen": return { width: 1920, height: 1080 };
-            case "square": return { width: 1024, height: 1024 };
-            case "portrait": return { width: 1080, height: 1920 };
-            default: return { width: 1920, height: 1080 };
-        }
-    }
-
     function preloadImage(url) {
         return new Promise((resolve, reject) => {
             const img = new Image();
@@ -208,7 +195,6 @@ document.addEventListener("DOMContentLoaded", () => {
     async function fetchDynamicPrompt() {
         const metaPrompt = "Generate exactly one short-125-character, new, fucked up and explicit wild image prompt as text only of outlandish and psychologically thrilling image. i.e. demented, evil, psychotic photo.";
         const textModel = document.getElementById("model-select")?.value;
-        const seed = generateSeed();
         try {
             const instructions = await ensureLocalInstructions();
             const messages = [];
@@ -219,7 +205,6 @@ document.addEventListener("DOMContentLoaded", () => {
             // Use polliLib chat to generate a single short prompt
             const data = await (window.polliLib?.chat?.({
                 model: textModel || "unity",
-                seed,
                 messages
             }) ?? Promise.reject(new Error('polliLib not loaded')));
             const generatedPrompt = data?.choices?.[0]?.message?.content?.trim();
@@ -270,23 +255,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        const { width, height } = getDimensions(settings.aspect);
-        const seed = generateSeed();
-        const model = settings.model || modelSelect.value;
-        const enhance = settings.enhance;
-        const priv = settings.priv;
-
         // Build the image URL via polliLib MCP helper (no direct endpoint usage)
         const url = (function(){
             try {
                 if (window.polliLib && window.polliClient) {
-                    return window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                        prompt,
-                        width, height, seed, model,
-                        nologo: true,
-                        private: priv,
-                        enhance: !!enhance
-                    });
+                    return window.polliLib.mcp.generateImageUrl(window.polliClient, { prompt });
                 }
                 console.warn("polliLib not loaded; using fallback URL");
             } catch (e) {

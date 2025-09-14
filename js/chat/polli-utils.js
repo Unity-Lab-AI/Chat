@@ -1,5 +1,5 @@
 (function(global){
-  function refreshPolliImage(url, options = {}) {
+  function refreshPolliImage(url) {
     if (!url) {
       return { error: 'No image source to refresh.' };
     }
@@ -23,15 +23,10 @@
       const i = parts.indexOf('prompt');
       if (i >= 0 && parts[i + 1]) prompt = decodeURIComponent(parts[i + 1]);
     } catch {}
-    const width = options.width || Number(urlObj.searchParams.get('width')) || 512;
-    const height = options.height || Number(urlObj.searchParams.get('height')) || 512;
-    const model = options.model || urlObj.searchParams.get('model') || (document.getElementById('model-select')?.value || undefined);
     let newUrl = url;
     try {
       if (global.polliLib && global.polliClient && prompt) {
-        newUrl = global.polliLib.mcp.generateImageUrl(global.polliClient, {
-          prompt, width, height, seed: newSeed, nologo: true, model
-        });
+        newUrl = global.polliLib.mcp.generateImageUrl(global.polliClient, { prompt });
       } else {
         urlObj.searchParams.set('seed', String(newSeed));
         newUrl = urlObj.toString();

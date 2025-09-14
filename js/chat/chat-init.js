@@ -214,15 +214,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const i = parts.indexOf('prompt');
             if (i >= 0 && parts[i+1]) prompt = decodeURIComponent(parts[i+1]);
         } catch {}
-        const width = Number(urlObj.searchParams.get('width')) || img.naturalWidth || 512;
-        const height = Number(urlObj.searchParams.get('height')) || img.naturalHeight || 512;
-        const model = urlObj.searchParams.get('model') || (document.getElementById('model-select')?.value || undefined);
         let newUrl = img.src;
         try {
             if (window.polliLib && window.polliClient && prompt) {
-                newUrl = window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                    prompt, width, height, seed: newSeed, nologo: true, model
-                });
+                newUrl = window.polliLib.mcp.generateImageUrl(window.polliClient, { prompt });
             } else {
                 urlObj.searchParams.set('seed', String(newSeed));
                 newUrl = urlObj.toString();
@@ -646,16 +641,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         imagePrompt = imagePrompt.slice(0, 100) + ", photographic";
         const updateImage = () => {
-            const seed = randomSeed();
             try {
                 if (window.polliLib && window.polliClient) {
-                    const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                        prompt: imagePrompt,
-                        width: 512,
-                        height: 512,
-                        seed,
-                        nologo: true
-                    });
+                    const url = window.polliLib.mcp.generateImageUrl(window.polliClient, { prompt: imagePrompt });
                     voiceChatImage.src = url;
                 }
             } catch (e) {
