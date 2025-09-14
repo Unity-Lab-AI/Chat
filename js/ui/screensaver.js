@@ -234,11 +234,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         saveScreensaverSettings();
         let prompt = promptInput.value.trim();
-        if (!prompt || autoPromptEnabled) {
-            const success = await updatePrompt();
-            if (success) {
-                prompt = promptInput.value.trim();
-            } else if (!prompt) {
+        if (!prompt) {
+            if (autoPromptEnabled) {
+                const success = await updatePrompt();
+                if (success) {
+                    prompt = promptInput.value.trim();
+                } else {
+                    isTransitioning = false;
+                    return;
+                }
+            } else {
                 isTransitioning = false;
                 return;
             }
