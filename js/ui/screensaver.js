@@ -191,13 +191,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const textModel = document.getElementById("model-select")?.value;
         const seed = generateSeed();
         try {
-            await window.ensureAIInstructions?.();
-            const messages = [];
-            if (window.aiInstructions) {
-                messages.push({ role: "system", content: window.aiInstructions });
-            }
-            messages.push({ role: "user", content: metaPrompt });
-            // Use polliLib chat to generate a single short prompt
+            const messages = [{ role: "user", content: metaPrompt }];
+            // Use polliLib chat to generate a single short prompt solely from the meta prompt
             const data = await (window.polliLib?.chat?.({
                 model: textModel || "openai",
                 seed,
