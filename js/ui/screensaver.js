@@ -168,6 +168,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
     }
 
+    function sanitizePrompt(text) {
+        return text.replace(/\s+/g, ' ').trim();
+    }
+
     function getDimensions(aspect) {
         switch (aspect) {
             case "widescreen": return { width: 1920, height: 1080 };
@@ -175,6 +179,37 @@ document.addEventListener("DOMContentLoaded", () => {
             case "portrait": return { width: 1080, height: 1920 };
             default: return { width: 1920, height: 1080 };
         }
+    }
+
+    function buildImageUrl(prompt, { width, height, seed, model, priv, enhance }) {
+        prompt = sanitizePrompt(prompt);
+        try {
+            if (window.polliLib && window.polliClient) {
+                return window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                    prompt,
+                    width,
+                    height,
+                    seed,
+                    model,
+                    nologo: true,
+                    private: priv,
+                    enhance: !!enhance
+                });
+            }
+        } catch (e) {
+            console.warn('polliLib generateImageUrl failed', e);
+        }
+        const base = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+        const params = new URLSearchParams({
+            width: String(width),
+            height: String(height),
+            seed: String(seed),
+            model: model || 'flux',
+            nologo: 'true',
+            private: priv ? 'true' : 'false',
+            enhance: enhance ? 'true' : 'false'
+        });
+        return `${base}?${params.toString()}`;
     }
 
     function preloadImage(url) {
@@ -214,10 +249,11 @@ document.addEventListener("DOMContentLoaded", () => {
         isFetchingPrompt = true;
         try {
             const newPrompt = await fetchDynamicPrompt();
-            promptInput.value = newPrompt;
-            settings.prompt = newPrompt;
+            const cleanPrompt = sanitizePrompt(newPrompt);
+            promptInput.value = cleanPrompt;
+            settings.prompt = cleanPrompt;
             saveScreensaverSettings();
-            window.showToast("New fucked-up prompt loaded from API: " + newPrompt);
+            window.showToast("New fucked-up prompt loaded from API: " + cleanPrompt);
             lastPromptUpdate = Date.now();
             return true;
         } catch (err) {
@@ -235,11 +271,11 @@ document.addEventListener("DOMContentLoaded", () => {
         isTransitioning = true;
 
         saveScreensaverSettings();
-        let prompt = promptInput.value.trim();
+        let prompt = sanitizePrompt(promptInput.value);
         if (!prompt || autoPromptEnabled) {
             const success = await updatePrompt();
             if (success) {
-                prompt = promptInput.value.trim();
+                prompt = sanitizePrompt(promptInput.value);
             } else if (!prompt) {
                 isTransitioning = false;
                 return;
@@ -252,36 +288,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const enhance = settings.enhance;
         const priv = settings.priv;
 
-        // Build the image URL via polliLib MCP helper; fallback to direct Pollinations endpoint
-        const url = await (async () => {
-            try {
-                if (window.polliLib && window.polliClient) {
-                    return await window.polliLib.mcp.generateImageUrl(window.polliClient, {
-                        prompt,
-                        width,
-                        height,
-                        seed,
-                        model,
-                        nologo: true,
-                        private: priv,
-                        enhance: !!enhance
-                    });
-                }
-            } catch (e) {
-                console.warn('polliLib generateImageUrl failed', e);
-            }
-            const base = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
-            const params = new URLSearchParams({
-                width,
-                height,
-                seed,
-                model: model || 'flux',
-                nologo: 'true',
-                private: String(priv),
-                enhance: String(!!enhance)
-            });
-            return `${base}?${params.toString()}`;
-        })();
+        const url = buildImageUrl(prompt, { width, height, seed, model, priv, enhance });
         console.log("Generated new image URL via polliLib:", url);
 
         const nextImage = currentImage === 'image1' ? 'image2' : 'image1';
