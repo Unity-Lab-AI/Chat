@@ -22,6 +22,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const thumbLeftButton = document.getElementById("screensaver-thumb-left");
     const thumbRightButton = document.getElementById("screensaver-thumb-right");
 
+    const required = [
+        screensaverContainer, toggleScreensaverButton, fullscreenButton, stopButton,
+        playPauseButton, saveButton, copyButton, hideButton,
+        screensaverImage1, screensaverImage2, promptInput, timerInput,
+        aspectSelect, enhanceCheckbox, privateCheckbox, transitionDurationInput, modelSelect
+    ].filter(Boolean);
+
+    if (required.length < 17) {
+        console.error("Missing required DOM elements. Check your IDs.");
+    }
+
     let screensaverActive = false;
     let imageInterval = null;
     let promptInterval = null;
@@ -38,6 +49,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const MAX_HISTORY = 10;
     const EMPTY_THUMBNAIL = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
     const PROMPT_UPDATE_INTERVAL = 20000;
+    const DATA_FALLBACK =
+        "data:image/svg+xml;charset=utf-8," +
+        encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='576'>
+    <rect width='100%' height='100%' fill='black'/>
+    <text x='50%' y='50%' fill='white' font-size='28' text-anchor='middle' dominant-baseline='middle'>
+      Image failed to load
+    </text></svg>`);
+
+    const FALLBACK_PROMPTS = [
+        "a grotesque neon demon glitching in a subway tunnel",
+        "surreal flesh-mechanic hybrid screaming in the void",
+        "mutated carnival clown with a melting laser face"
+    ];
 
     let settings = {
         prompt: '',
@@ -49,21 +73,21 @@ document.addEventListener("DOMContentLoaded", () => {
         transitionDuration: 1
     };
 
-    toggleScreensaverButton.title = "Toggle the screensaver on/off.";
-    fullscreenButton.title = "Go full screen (or exit it).";
-    stopButton.title = "Stop the screensaver.";
-    playPauseButton.title = "Play or pause the image rotation.";
-    saveButton.title = "Save the current screensaver image.";
-    copyButton.title = "Copy the current screensaver image to clipboard.";
-    hideButton.title = "Hide or show controls and thumbnails.";
-    promptInput.title = "Prompt for the AI to create images from.";
-    timerInput.title = "Interval between new images (in seconds).";
-    aspectSelect.title = "Select the aspect ratio for the generated image.";
-    modelSelect.title = "Choose the image-generation model.";
-    enhanceCheckbox.title = "If enabled, the prompt is 'enhanced' via an LLM.";
-    privateCheckbox.title = "If enabled, the image won't appear on the public feed.";
-    transitionDurationInput.title = "Set the duration of image transitions in seconds.";
-    if (restartPromptButton) restartPromptButton.title = "Toggle automatic prompt generation on/off.";
+    toggleScreensaverButton && (toggleScreensaverButton.title = "Toggle the screensaver on/off.");
+    fullscreenButton && (fullscreenButton.title = "Go full screen (or exit it).");
+    stopButton && (stopButton.title = "Stop the screensaver.");
+    playPauseButton && (playPauseButton.title = "Play or pause the image rotation.");
+    saveButton && (saveButton.title = "Save the current screensaver image.");
+    copyButton && (copyButton.title = "Copy the current screensaver image to clipboard.");
+    hideButton && (hideButton.title = "Hide or show controls and thumbnails.");
+    promptInput && (promptInput.title = "Prompt for the AI to create images from.");
+    timerInput && (timerInput.title = "Interval between new images (in seconds).");
+    aspectSelect && (aspectSelect.title = "Select the aspect ratio for the generated image.");
+    modelSelect && (modelSelect.title = "Choose the image-generation model.");
+    enhanceCheckbox && (enhanceCheckbox.title = "If enabled, the prompt is 'enhanced' via an LLM.");
+    privateCheckbox && (privateCheckbox.title = "If enabled, the image won't appear on the public feed.");
+    transitionDurationInput && (transitionDurationInput.title = "Set the duration of image transitions in seconds.");
+    restartPromptButton && (restartPromptButton.title = "Toggle automatic prompt generation on/off.");
 
     function saveScreensaverSettings() {
         try {
@@ -242,6 +266,15 @@ document.addEventListener("DOMContentLoaded", () => {
             return true;
         } catch (err) {
             console.error("Failed to fetch new prompt after retries:", err);
+            const fallback = FALLBACK_PROMPTS[Math.floor(Math.random() * FALLBACK_PROMPTS.length)];
+            if (fallback) {
+                promptInput.value = fallback;
+                settings.prompt = fallback;
+                saveScreensaverSettings();
+                window.showToast("API failed. Using local prompt: " + fallback);
+                lastPromptUpdate = Date.now();
+                return true;
+            }
             window.showToast("Fuck, I can’t get a new prompt from the API! Trying again in next cycle.");
             lastPromptUpdate = Date.now();
             return false;
@@ -284,9 +317,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         enhance: !!enhance
                     });
                 }
-            } catch (e) { console.warn('polliLib generateImageUrl failed', e); }
-            // Fallback to placeholder if polliLib not available
-            return "https://via.placeholder.com/512?text=Image+Unavailable";
+                console.warn("polliLib not loaded; using fallback URL");
+            } catch (e) {
+                console.warn('generateImageUrl failed', e);
+            }
+            return DATA_FALLBACK;
         })();
         console.log("Generated new image URL via polliLib:", url);
 
@@ -312,20 +347,15 @@ document.addEventListener("DOMContentLoaded", () => {
         nextImgElement.onload = () => handleImageLoad("Image loaded successfully, added to history:");
 
         nextImgElement.onerror = () => {
-            const fallbackUrl = "https://via.placeholder.com/512?text=Image+Failed";
-            nextImgElement.src = fallbackUrl;
-            nextImgElement.onload = () => handleImageLoad("Image failed, added fallback to history:");
-            nextImgElement.onerror = () => {
-                console.error("Fallback image also failed to load.");
-            };
+            nextImgElement.src = DATA_FALLBACK;
+            nextImgElement.onload = () => handleImageLoad("External image blocked; showed inline fallback:");
         };
 
         try {
-            await preloadImage(url);
             nextImgElement.src = url;
+            await preloadImage(url);
         } catch (err) {
-            const fallbackUrl = "https://via.placeholder.com/512?text=Image+Failed";
-            nextImgElement.src = fallbackUrl;
+            nextImgElement.src = DATA_FALLBACK;
         } finally {
             isTransitioning = false;
         }
