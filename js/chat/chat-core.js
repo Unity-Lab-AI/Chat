@@ -259,6 +259,74 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
     }
 
+    const polliTools = window.polliLib?.tools;
+    const toolDefinitions = polliTools ? [
+        polliTools.functionTool('image', 'Generate an image', {
+            type: 'object',
+            properties: { prompt: { type: 'string', description: 'Image description' } },
+            required: ['prompt']
+        }),
+        polliTools.functionTool('tts', 'Convert text to speech', {
+            type: 'object',
+            properties: { text: { type: 'string', description: 'Text to speak' } },
+            required: ['text']
+        }),
+        polliTools.functionTool('ui', 'Execute a UI command', {
+            type: 'object',
+            properties: { command: { type: 'string', description: 'Command to run' } },
+            required: ['command']
+        })
+    ] : [];
+
+    const toolbox = polliTools ? new polliTools.ToolBox() : { register() { return this; }, get() { return null; } };
+    toolbox
+        .register('image', async ({ prompt }) => {
+            if (!(window.polliLib && window.polliClient)) return {};
+            try {
+                const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                    prompt,
+                    width: 512,
+                    height: 512,
+                    private: true,
+                    nologo: true,
+                    safe: true
+                });
+                return { imageUrl: url };
+            } catch (e) {
+                console.warn('polliLib generateImageUrl failed', e);
+                return {};
+            }
+        })
+        .register('tts', async ({ text }) => {
+            if (!(window.polliLib && window.polliClient)) return {};
+            try {
+                const blob = await window.polliLib.tts(text, { model: 'openai-audio' }, window.polliClient);
+                const url = URL.createObjectURL(blob);
+                return { audioUrl: url };
+            } catch (e) {
+                console.warn('polliLib tts failed', e);
+                return {};
+            }
+        })
+        .register('ui', async ({ command }) => {
+            try { executeCommand(command); } catch (e) { console.warn('executeCommand failed', e); }
+            return {};
+        });
+
+    async function handleToolJson(raw, { imageUrls, audioUrls }) {
+        try {
+            const obj = JSON.parse(raw);
+            const fn = toolbox.get(obj.tool);
+            if (!fn) return { handled: false, text: raw };
+            const res = await fn(obj);
+            if (res?.imageUrl) imageUrls.push(res.imageUrl);
+            if (res?.audioUrl) audioUrls.push(res.audioUrl);
+            return { handled: true, text: res?.text || '' };
+        } catch {
+            return { handled: false, text: raw };
+        }
+    }
+
     function handleVoiceCommand(text) {
         return executeCommand(text);
     }
@@ -535,7 +603,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             // Use polliLib OpenAI-compatible chat endpoint
-            const data = await (window.polliLib?.chat?.({ model, messages }) ?? Promise.reject(new Error('polliLib not loaded')));
+            const data = await (window.polliLib?.chat?.({ model, messages, tools: toolDefinitions }) ?? Promise.reject(new Error('polliLib not loaded')));
             loadingDiv.remove();
 
             const messageObj = data?.choices?.[0]?.message || {};
@@ -559,6 +627,9 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 aiContent = messageObj.content || "";
             }
+
+            const toolRes = await handleToolJson(aiContent, { imageUrls, audioUrls });
+            aiContent = toolRes.text;
 
             const memRegex = /\[memory\]([\s\S]*?)\[\/memory\]/gi;
             let m;
