@@ -15,16 +15,18 @@ const client = {
         async json() { return pending; },
       };
     }
-    return {
-      ok: true,
-      headers: { get: () => 'image/png' },
-      async blob() { return new Blob(['x'], { type: 'image/png' }); },
-    };
+    return { ok: false, status: 500, headers: { get: () => 'text/plain' } };
   }
 };
 
 global.fetch = () => { throw new Error('fetch should not be called'); };
 
-const blob = await image('test', {}, client);
-assert(blob instanceof Blob);
+let caught = null;
+try {
+  await image('test', { retries: 0 }, client);
+} catch (err) {
+  caught = err;
+}
+assert(caught);
+assert.equal(caught.message, 'image error 500');
 assert.equal(calls, 2);
