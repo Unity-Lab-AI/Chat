@@ -16,7 +16,7 @@ const response = [
   'say ok',
   '```',
   '```ui',
-  'console.log("ui done")',
+  '{"action":"click","target":"console"}',
   '```',
   '```javascript',
   "console.log('hi');",
@@ -68,7 +68,8 @@ await processPatterns([{ pattern: /```audio\n([\s\S]*?)\n```/i, group: 1 }], asy
 });
 
 await processPatterns([{ pattern: /```ui\n([\s\S]*?)\n```/i, group: 1 }], async command => {
-  uiExecuted = true;
+  const obj = JSON.parse(command);
+  uiExecuted = obj.action === 'click' && obj.target === 'console';
 });
 
 content = content.replace(/\n{3,}/g, '\n\n');
@@ -86,7 +87,7 @@ assert(blob && typeof blob.size === 'number' && blob.size > 0, 'Audio blob gener
 assert(!sanitized.includes('say ok'), 'Audio prompt hidden');
 
 assert(uiExecuted, 'UI command executed');
-assert(!sanitized.includes('console.log("ui done")'), 'UI command hidden');
+assert(!sanitized.includes('"action"'), 'UI command hidden');
 
 assert(html.includes('<code'), 'Code block rendered');
 assert(html.includes('<hr'), 'Horizontal rule rendered');

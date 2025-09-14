@@ -4,6 +4,17 @@ import { generateImageUrl } from '../js/polliLib/src/mcp.js';
 import { tts } from '../js/polliLib/src/audio.js';
 import { ToolBox, functionTool } from '../js/polliLib/src/tools.js';
 
+const uiCommandSchema = {
+  type: 'object',
+  properties: {
+    action: { type: 'string', enum: ['openScreensaver', 'closeScreensaver', 'changeTheme', 'changeModel', 'setValue', 'click'] },
+    target: { type: 'string' },
+    value: { type: 'string' }
+  },
+  required: ['action'],
+  additionalProperties: false
+};
+
 const client = new PolliClientWeb({ referrer: 'unityailab.com' });
 
 const toolbox = new ToolBox();
@@ -20,7 +31,7 @@ const tools = [
   }),
   functionTool('ui', 'Execute UI command', {
     type: 'object',
-    properties: { command: { type: 'string' } },
+    properties: { command: uiCommandSchema },
     required: ['command']
   })
 ];
@@ -52,7 +63,7 @@ box: {
       return { ok: true };
     })
     .register('ui', async ({ command }) => {
-      uiRan = command === 'ping';
+      uiRan = command.action === 'click' && command.target === 'ping';
       return { ok: uiRan };
     });
 }
@@ -66,7 +77,7 @@ async function dispatch(json) {
 
 await dispatch('{"tool":"image","prompt":"tiny green square"}');
 await dispatch('{"tool":"tts","text":"ok"}');
-await dispatch('{"tool":"ui","command":"ping"}');
+await dispatch('{"tool":"ui","command":{"action":"click","target":"ping"}}');
 
 assert(imageUrl && imageUrl.startsWith('http'), 'image url via polliLib');
 assert(audioBlob && typeof audioBlob.size === 'number', 'audio blob generated');
