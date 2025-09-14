@@ -655,12 +655,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         nologo: true
                     });
                     voiceChatImage.src = url;
-                } else {
-                    voiceChatImage.src = "https://via.placeholder.com/512?text=Image+Unavailable";
                 }
             } catch (e) {
                 console.warn('polliLib generateImageUrl failed', e);
-                voiceChatImage.src = "https://via.placeholder.com/512?text=Image+Unavailable";
             }
             voiceChatImage.dataset.imageId = imageId;
             voiceChatImage.onload = () => {
