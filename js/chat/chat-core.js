@@ -44,6 +44,27 @@ window.ensureAIInstructions = async function ensureAIInstructions() {
     return window.aiInstructions;
 };
 
+// Schema for structured UI commands
+const uiCommandSchema = {
+    type: 'object',
+    properties: {
+        action: { type: 'string', enum: ['openScreensaver', 'closeScreensaver', 'changeTheme', 'changeModel', 'setValue', 'click'] },
+        target: { type: 'string' },
+        value: { type: 'string' }
+    },
+    required: ['action'],
+    additionalProperties: false
+};
+
+function validateUICommand(cmd) {
+    if (!cmd || typeof cmd !== 'object') return false;
+    const { action, target, value } = cmd;
+    if (!uiCommandSchema.properties.action.enum.includes(action)) return false;
+    if (['changeTheme', 'changeModel', 'click'].includes(action) && typeof target !== 'string') return false;
+    if (action === 'setValue' && (typeof target !== 'string' || typeof value !== 'string')) return false;
+    return true;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
 
     const chatBox = document.getElementById("chat-box");
@@ -138,7 +159,89 @@ document.addEventListener("DOMContentLoaded", () => {
         return null;
     }
 
-    function executeCommand(message) {
+    function executeCommand(command) {
+        if (typeof command === 'object') {
+            if (!validateUICommand(command)) return false;
+            const { action, target, value } = command;
+            if (action === 'openScreensaver') {
+                const reply = "Just a second, opening the screensaver.";
+                if (!window.screensaverActive) document.getElementById("toggle-screensaver")?.click();
+                window.addNewMessage({ role: "ai", content: reply });
+                if (autoSpeakEnabled) speakMessage(reply);
+                return true;
+            }
+            if (action === 'closeScreensaver') {
+                const reply = "Closing the screensaver.";
+                if (window.screensaverActive) document.getElementById("toggle-screensaver")?.click();
+                window.addNewMessage({ role: "ai", content: reply });
+                if (autoSpeakEnabled) speakMessage(reply);
+                return true;
+            }
+            if (action === 'changeTheme') {
+                const theme = target.trim().replace(/\s+/g, '-');
+                const themeSelect = document.getElementById("theme-select");
+                const themeSettings = document.getElementById("theme-select-settings");
+                if (themeSelect) {
+                    themeSelect.value = theme;
+                    themeSelect.dispatchEvent(new Event('change'));
+                }
+                if (themeSettings) {
+                    themeSettings.value = theme;
+                    themeSettings.dispatchEvent(new Event('change'));
+                }
+                showToast(`Theme changed to ${theme}`);
+                return true;
+            }
+            if (action === 'changeModel') {
+                const desired = target.trim();
+                const option = Array.from(modelSelect.options).find(opt =>
+                    opt.textContent.toLowerCase().includes(desired.toLowerCase()));
+                let reply;
+                if (option) {
+                    modelSelect.value = option.value;
+                    modelSelect.dispatchEvent(new Event("change"));
+                    reply = `Model changed to ${option.textContent}.`;
+                } else {
+                    reply = `I couldn't find a model named ${desired}.`;
+                }
+                window.addNewMessage({ role: "ai", content: reply });
+                if (autoSpeakEnabled) speakMessage(reply);
+                return true;
+            }
+            if (action === 'setValue') {
+                const el = findElement(target);
+                let reply;
+                if (el && "value" in el) {
+                    el.value = value;
+                    el.dispatchEvent(new Event("input", { bubbles: true }));
+                    reply = `${target} set to ${value}.`;
+                } else {
+                    reply = `I couldn't find ${target}.`;
+                }
+                window.addNewMessage({ role: "ai", content: reply });
+                if (autoSpeakEnabled) speakMessage(reply);
+                return true;
+            }
+            if (action === 'click') {
+                let el = findElement(target);
+                if (!el && target === "screensaver") {
+                    el = findElement("toggle screensaver");
+                }
+                let reply;
+                if (el) {
+                    el.click();
+                    reply = `${target} activated.`;
+                } else {
+                    reply = `I couldn't find ${target}.`;
+                }
+                window.addNewMessage({ role: "ai", content: reply });
+                if (autoSpeakEnabled) speakMessage(reply);
+                return true;
+            }
+            return false;
+        }
+
+        const message = command;
         const lower = message.toLowerCase().trim();
 
         const openScreensaver = /^(open|start)( the)? screensaver$/.test(lower);
@@ -273,7 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
         polliTools.functionTool('ui', 'Execute a UI command', {
             type: 'object',
-            properties: { command: { type: 'string', description: 'Command to run' } },
+            properties: { command: uiCommandSchema },
             required: ['command']
         })
     ] : [];
@@ -309,6 +412,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         })
         .register('ui', async ({ command }) => {
+            if (!validateUICommand(command)) {
+                console.warn('invalid ui command', command);
+                return {};
+            }
             try { executeCommand(command); } catch (e) { console.warn('executeCommand failed', e); }
             return {};
         });

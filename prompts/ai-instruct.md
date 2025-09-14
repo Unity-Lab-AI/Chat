@@ -106,10 +106,11 @@ tell me a joke in a calm tone
 
 ## UI Commands
 
-- Request interface actions inside a `ui` fenced block:
+- Request interface actions inside a `ui` fenced block as a **JSON object**.
+- The object **must** follow the schema in `docs/ui-command.schema.json`.
 
 ```ui
-open the screensaver
+{"action":"openScreensaver"}
 ```
 
 - Use one command per block; commands run silently without being shown. Content is consumed programmatically and must not include Pollinations URLs.
@@ -122,11 +123,15 @@ open the screensaver
 - The object must include a `tool` field:
   - `image` with a `prompt` string to generate an image.
   - `tts` with a `text` string for text-to-speech.
-  - `ui` with a `command` string for interface actions.
+  - `ui` with a `command` object that follows `docs/ui-command.schema.json`.
 - Example:
 
 ```json
 {"tool":"image","prompt":"a glowing neon cityscape at night with flying cars"}
+```
+
+```json
+{"tool":"ui","command":{"action":"openScreensaver"}}
 ```
 
 - Do not include extra commentary outside the JSON object.
