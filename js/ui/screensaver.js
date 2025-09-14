@@ -183,38 +183,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function buildImageUrl(prompt, { width, height, seed, model, priv, enhance }) {
         prompt = sanitizePrompt(prompt);
-        try {
-            if (window.polliLib && window.polliClient) {
+        if (window.polliLib && window.polliClient) {
+            try {
                 return window.polliLib.mcp.generateImageUrl(window.polliClient, {
                     prompt,
                     width,
                     height,
                     seed,
-                    model,
+                    model: model || 'flux',
                     nologo: true,
                     private: priv,
                     enhance: !!enhance
                 });
+            } catch (e) {
+                console.warn('polliLib generateImageUrl failed', e);
             }
-        } catch (e) {
-            console.warn('polliLib generateImageUrl failed', e);
         }
-        const base = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
-        const params = new URLSearchParams({
-            width: String(width),
-            height: String(height),
-            seed: String(seed),
+
+        const base = window.polliClient?.imageBase || 'https://image.pollinations.ai';
+        const url = new URL(`/prompt/${encodeURIComponent(prompt)}`, base);
+        const params = {
+            width,
+            height,
+            seed,
             model: model || 'flux',
             nologo: 'true',
             private: priv ? 'true' : 'false',
             enhance: enhance ? 'true' : 'false'
-        });
-        return `${base}?${params.toString()}`;
+        };
+        for (const [k, v] of Object.entries(params)) {
+            if (v != null) url.searchParams.set(k, String(v));
+        }
+        if (window.polliClient?.referrer && !url.searchParams.has('referrer')) {
+            url.searchParams.set('referrer', window.polliClient.referrer);
+        }
+        return url.toString();
     }
 
     function preloadImage(url) {
         return new Promise((resolve, reject) => {
             const img = new Image();
+            img.crossOrigin = 'anonymous';
             img.src = url;
             img.onload = () => resolve(url);
             img.onerror = () => reject(new Error("Image loaded like shit!"));
@@ -323,6 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             await preloadImage(url);
+            nextImgElement.crossOrigin = 'anonymous';
             nextImgElement.src = url;
         } catch (err) {
             const fallbackUrl = "https://via.placeholder.com/512?text=Image+Failed";
@@ -402,6 +412,7 @@ document.addEventListener("DOMContentLoaded", () => {
             currentImage = nextImage;
             updateThumbnailHistory();
         };
+        nextImgElement.crossOrigin = 'anonymous';
         nextImgElement.src = imageUrl;
         nextImgElement.alt = "Screensaver Image";
         if (nextImgElement.complete && nextImgElement.naturalWidth !== 0) {
