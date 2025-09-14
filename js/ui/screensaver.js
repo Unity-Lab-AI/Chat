@@ -186,15 +186,30 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    async function ensureLocalInstructions() {
+        if (window.ensureAIInstructions) {
+            return window.ensureAIInstructions();
+        }
+        if (window.aiInstructions) return window.aiInstructions;
+        try {
+            const res = await fetch("prompts/ai-instruct.md", { cache: "no-store" });
+            window.aiInstructions = await res.text();
+        } catch (err) {
+            console.error("Failed to fetch AI instructions:", err);
+            window.aiInstructions = "";
+        }
+        return window.aiInstructions;
+    }
+
     async function fetchDynamicPrompt() {
         const metaPrompt = "Generate exactly one short-125-character, new, fucked up and explicit wild image prompt as text only of outlandish and psychologically thrilling image. i.e. demented, evil, psychotic photo.";
         const textModel = document.getElementById("model-select")?.value;
         const seed = generateSeed();
         try {
-            await window.ensureAIInstructions?.();
+            const instructions = await ensureLocalInstructions();
             const messages = [];
-            if (window.aiInstructions) {
-                messages.push({ role: "system", content: window.aiInstructions });
+            if (instructions) {
+                messages.push({ role: "system", content: instructions });
             }
             messages.push({ role: "user", content: metaPrompt });
             // Use polliLib chat to generate a single short prompt
