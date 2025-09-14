@@ -199,7 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
             messages.push({ role: "user", content: metaPrompt });
             // Use polliLib chat to generate a single short prompt
             const data = await (window.polliLib?.chat?.({
-                model: textModel || "openai",
+                model: textModel || "unity",
                 seed,
                 messages
             }) ?? Promise.reject(new Error('polliLib not loaded')));
@@ -748,6 +748,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     console.log("Screensaver initialized with dynamic API prompts and streaming thumbnail gallery!");
 });
+
 
 
 
