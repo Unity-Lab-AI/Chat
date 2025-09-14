@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/pollilib-smoke.mjs && node tests/markdown-sanitization.mjs && node tests/ai-response.mjs && node tests/json-tools.mjs"
+    "test": "node tests/pollilib-smoke.mjs && node tests/markdown-sanitization.mjs && node tests/ai-response.mjs && node tests/json-tools.mjs && node testscripts/run-all.mjs"
   },
   "devDependencies": {
+    "jsdom": "^27.0.0",
     "marked": "^11.2.0"
   }
 }
-
