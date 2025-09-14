@@ -558,7 +558,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const memories = Memory.getMemories();
         if (memories?.length) {
-            messages.push({ role: "system", content: `Relevant memory:\n${memories.join("\n")}\nUse it in your response.` });
+            messages.push({ role: "user", content: memories.join("\n") });
         }
 
         const HISTORY = 10;
