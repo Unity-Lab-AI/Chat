@@ -49,23 +49,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const MAX_HISTORY = 10;
     const EMPTY_THUMBNAIL = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
     const PROMPT_UPDATE_INTERVAL = 20000;
-    const DATA_FALLBACK =
-        "data:image/svg+xml;charset=utf-8," +
-        encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='576'>
-    <rect width='100%' height='100%' fill='black'/>
-    <text x='50%' y='50%' fill='white' font-size='28' text-anchor='middle' dominant-baseline='middle'>
-      Image failed to load
-    </text></svg>`);
 
-    let settings = {
-        prompt: '',
-        timer: 30,
-        aspect: 'widescreen',
-        model: '',
-        enhance: true,
-        priv: true,
-        transitionDuration: 1
-    };
+    let settings = {};
 
     toggleScreensaverButton && (toggleScreensaverButton.title = "Toggle the screensaver on/off.");
     fullscreenButton && (fullscreenButton.title = "Go full screen (or exit it).");
@@ -93,28 +78,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function loadScreensaverSettings() {
+        let s = {};
         const raw = localStorage.getItem("screensaverSettings");
         if (raw) {
             try {
-                const s = JSON.parse(raw);
-                settings.prompt = '';
-                settings.timer = s.timer || 30;
-                settings.aspect = s.aspect || 'widescreen';
-                settings.model = s.model || '';
-                settings.enhance = s.enhance !== undefined ? s.enhance : true;
-                settings.priv = s.priv !== undefined ? s.priv : true;
-                settings.transitionDuration = s.transitionDuration || 1;
-
-                promptInput.value = settings.prompt;
-                timerInput.value = settings.timer;
-                aspectSelect.value = settings.aspect;
-                enhanceCheckbox.checked = settings.enhance;
-                privateCheckbox.checked = settings.priv;
-                transitionDurationInput.value = settings.transitionDuration;
+                s = JSON.parse(raw);
             } catch (err) {
                 console.warn("Failed to parse screensaver settings:", err);
             }
         }
+        settings.prompt = '';
+        settings.timer = s.timer || 30;
+        settings.aspect = s.aspect || 'widescreen';
+        settings.model = s.model || '';
+        settings.enhance = s.enhance !== undefined ? s.enhance : true;
+        settings.priv = s.priv !== undefined ? s.priv : true;
+        settings.transitionDuration = s.transitionDuration || 1;
+
+        promptInput.value = settings.prompt;
+        timerInput.value = settings.timer;
+        aspectSelect.value = settings.aspect;
+        enhanceCheckbox.checked = settings.enhance;
+        privateCheckbox.checked = settings.priv;
+        transitionDurationInput.value = settings.transitionDuration;
     }
 
     function saveImageHistory() {
@@ -306,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
             } catch (e) {
                 console.warn('generateImageUrl failed', e);
             }
-            return DATA_FALLBACK;
+            return EMPTY_THUMBNAIL;
         })();
         console.log("Generated new image URL via polliLib:", url);
 
@@ -332,7 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
         nextImgElement.onload = () => handleImageLoad("Image loaded successfully, added to history:");
 
         nextImgElement.onerror = () => {
-            nextImgElement.src = DATA_FALLBACK;
+            nextImgElement.src = EMPTY_THUMBNAIL;
             nextImgElement.onload = () => handleImageLoad("External image blocked; showed inline fallback:");
         };
 
@@ -340,7 +326,7 @@ document.addEventListener("DOMContentLoaded", () => {
             nextImgElement.src = url;
             await preloadImage(url);
         } catch (err) {
-            nextImgElement.src = DATA_FALLBACK;
+            nextImgElement.src = EMPTY_THUMBNAIL;
         } finally {
             isTransitioning = false;
         }
