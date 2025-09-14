@@ -31,8 +31,16 @@ export async function image(prompt, {
     const data = await r.json();
     if (json) return data;
     if (data?.url) {
-      const ir = await fetch(data.url);
+      const ir = await client.get(data.url);
       if (ir.ok) return await ir.blob();
+      if (retries > 0) {
+        await sleep(retryDelayMs);
+        return await image(prompt, {
+          model, seed, width, height, image, nologo, private: priv,
+          enhance, safe, referrer, json, retries: retries - 1, retryDelayMs,
+        }, client);
+      }
+      throw new Error(`image error ${ir.status}`);
     }
     if (retries > 0) {
       await sleep(retryDelayMs);
