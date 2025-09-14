@@ -252,21 +252,35 @@ document.addEventListener("DOMContentLoaded", () => {
         const enhance = settings.enhance;
         const priv = settings.priv;
 
-        // Build the image URL via polliLib MCP helper (no direct endpoint usage)
-        const url = (function(){
+        // Build the image URL via polliLib MCP helper; fallback to direct Pollinations endpoint
+        const url = await (async () => {
             try {
                 if (window.polliLib && window.polliClient) {
-                    return window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                    return await window.polliLib.mcp.generateImageUrl(window.polliClient, {
                         prompt,
-                        width, height, seed, model,
+                        width,
+                        height,
+                        seed,
+                        model,
                         nologo: true,
                         private: priv,
                         enhance: !!enhance
                     });
                 }
-            } catch (e) { console.warn('polliLib generateImageUrl failed', e); }
-            // Fallback to placeholder if polliLib not available
-            return "https://via.placeholder.com/512?text=Image+Unavailable";
+            } catch (e) {
+                console.warn('polliLib generateImageUrl failed', e);
+            }
+            const base = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+            const params = new URLSearchParams({
+                width,
+                height,
+                seed,
+                model: model || 'flux',
+                nologo: 'true',
+                private: String(priv),
+                enhance: String(!!enhance)
+            });
+            return `${base}?${params.toString()}`;
         })();
         console.log("Generated new image URL via polliLib:", url);
 
