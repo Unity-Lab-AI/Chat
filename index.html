@@ -11,9 +11,9 @@
     <link rel="stylesheet" href="js/ui/stylesScreensaver.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script defer src="js/polliLib/polliLib-web.global.js"></script>
-    <script defer>
+    <script>
       // Configure polliLib default client and expose an explicit client for MCP helpers
-      (function(){
+      window.addEventListener('DOMContentLoaded', () => {
         try {
           if (window.polliLib) {
             // Derive base referrer from attribute or window location (no path segments)
@@ -59,7 +59,7 @@
             }
           }
         } catch (e) { console.warn('polliLib configure failed', e); }
-      })();
+      });
     </script>
   </head>
   <body>
