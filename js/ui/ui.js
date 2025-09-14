@@ -110,8 +110,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchPollinationsModels() {
         try {
-            // Use polliLib to list text models instead of direct endpoint
-            const models = await (window.polliLib?.textModels?.() ?? Promise.reject(new Error('polliLib not loaded')));
+            const caps = await (window.polliLib?.modelCapabilities?.() ?? Promise.reject(new Error('polliLib not loaded')));
+            window.pollinationsCaps = caps;
+            const models = Object.entries(caps.text || {}).map(([name, info]) => ({ name, ...(info || {}) }));
             modelSelect.innerHTML = "";
             let hasValidModel = false;
 
@@ -132,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     if (m.reasoning) tooltip += " | Reasoning";
                     if (m.vision) tooltip += " | Vision";
-                    if (m.audio) tooltip += " | Audio: " + (m.voices ? m.voices.join(", ") : "N/A");
+                    if (m.audio) tooltip += " | Audio: " + (m.audio.voices ? m.audio.voices.join(", ") : "N/A");
                     if (m.provider) tooltip += " | Provider: " + m.provider;
 
                     opt.title = tooltip;
@@ -159,6 +160,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     console.warn(`Model ${preferredModel} not found in fetched list. Added as unavailable option.`);
                 }
             }
+
+            if (window.updateCapabilityUI) window.updateCapabilityUI(modelSelect.value);
 
             if (!modelSelect.value && modelSelect.options.length > 0) {
                 const unityOption = Array.from(modelSelect.options).find(opt => opt.value === "unity");
@@ -210,6 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 modelSelect.style.color = "";
             }, 500);
             window.showToast(`Model updated to: ${newModel}`);
+            if (window.updateCapabilityUI) window.updateCapabilityUI(newModel);
         }
     });
 

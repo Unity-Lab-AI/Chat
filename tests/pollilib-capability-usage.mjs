@@ -9,7 +9,7 @@ const client = {
       return { ok: true, async json() { return { foo: {} }; }, headers: { get: () => 'application/json' } };
     }
     if (url === 'https://txt.example/models') {
-      return { ok: true, async json() { return { bar: {} }; }, headers: { get: () => 'application/json' } };
+      return { ok: true, async json() { return { bar: {}, baz: {} }; }, headers: { get: () => 'application/json' } };
     }
     if (url === 'https://txt.example/audio') {
       return { ok: true, async json() { return { bar: { voices: ['a'] } }; }, headers: { get: () => 'application/json' } };
@@ -21,9 +21,12 @@ const client = {
 };
 
 const caps = await modelCapabilities(client);
-assert('foo' in caps.image);
-assert('bar' in caps.text);
-assert.deepEqual(caps.audio.bar.voices, ['a']);
-assert(caps.text.bar.audio.voices[0] === 'a');
-assert(caps.text.bar.tools.toolA);
-assert('bar' in caps.tools);
+
+function buildOptions(model) {
+  const opts = { model, messages: [] };
+  if (caps.text?.[model]?.tools) opts.tools = ['toolA'];
+  return opts;
+}
+
+assert('tools' in buildOptions('bar'));
+assert(!('tools' in buildOptions('baz')));

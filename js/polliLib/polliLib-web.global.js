@@ -284,12 +284,28 @@
   async function listTextModels(client) { return await textModels(client); }
   async function listAudioVoices(client) { const models = await textModels(client); return models?.['openai-audio']?.voices ?? []; }
 
+  async function toolModels(client) { const r = await client.get(`${client.textBase}/tools`); if (!r.ok) throw new Error(`toolModels error ${r.status}`); return await r.json(); }
+  async function audioModels(client) { const r = await client.get(`${client.textBase}/audio`); if (!r.ok) throw new Error(`audioModels error ${r.status}`); return await r.json(); }
+
   async function modelCapabilities(client = getDefaultClient()) {
-    const [image, text] = await Promise.all([
+    const [img, text, audio, tools] = await Promise.all([
       imageModels(client).catch(() => ({})),
       textModels(client).catch(() => ({})),
+      audioModels(client).catch(() => ({})),
+      toolModels(client).catch(() => ({})),
     ]);
-    return { image, text, audio: text?.['openai-audio'] ?? {} };
+    const image = {};
+    for (const [name, info] of Object.entries(img ?? {})) {
+      image[name] = { ...(info || {}), json: imageModelSupportsJson(info) };
+    }
+    const textCaps = { ...(text ?? {}) };
+    for (const [name, info] of Object.entries(audio ?? {})) {
+      textCaps[name] = { ...(textCaps[name] || {}), audio: info };
+    }
+    for (const [name, info] of Object.entries(tools ?? {})) {
+      textCaps[name] = { ...(textCaps[name] || {}), tools: info };
+    }
+    return { image, text: textCaps, audio, tools };
   }
 
   // --- pipeline.js ---
