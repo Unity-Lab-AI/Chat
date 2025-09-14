@@ -39,7 +39,8 @@ assert.equal(u.searchParams.get('referrer'), 'ref.com');
 await chat({
   model: 'gpt',
   messages: [{ role: 'user', content: 'hello' }],
-  temperature: 0.7
+  temperature: 0.7,
+  json: true
 }, client);
 
 ({ url, opts } = calls[1]);
@@ -50,5 +51,6 @@ const body = JSON.parse(opts.body);
 assert.equal(body.model, 'gpt');
 assert.equal(body.temperature, 0.7);
 assert.equal(body.messages[0].content, 'hello');
+assert.equal(body.json, true);
 // default referrer added by client
 assert.equal(body.referrer, 'default.com');
