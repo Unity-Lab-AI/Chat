@@ -34,7 +34,7 @@ export async function text(prompt, {
   }
 }
 
-export async function chat({ model, messages, seed, temperature, top_p, presence_penalty, frequency_penalty, max_tokens, stream, private: priv, tools, tool_choice, referrer }, client = getDefaultClient()) {
+export async function chat({ model, messages, seed, temperature, top_p, presence_penalty, frequency_penalty, max_tokens, stream, private: priv, tools, tool_choice, referrer, json }, client = getDefaultClient()) {
   const url = `${client.textBase}/openai`;
   const body = { model, messages };
   if (seed != null) body.seed = seed;
@@ -47,6 +47,7 @@ export async function chat({ model, messages, seed, temperature, top_p, presence
   if (tools) body.tools = tools;
   if (tool_choice) body.tool_choice = tool_choice;
   if (referrer) body.referrer = referrer;
+  if (json) body.json = true;
 
   if (stream) {
     body.stream = true;

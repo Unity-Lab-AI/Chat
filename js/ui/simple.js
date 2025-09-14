@@ -420,17 +420,26 @@ document.addEventListener("DOMContentLoaded", () => {
             img.dataset.imageId = imageId;
             img.crossOrigin = "anonymous";
 
+            let attempts = 0;
+            const maxAttempts = 5;
+            const tryReload = () => {
+                if (attempts++ >= maxAttempts) {
+                    loadingDiv.innerHTML = "⚠️ Failed to load image";
+                    loadingDiv.style.display = "flex";
+                    loadingDiv.style.justifyContent = "center";
+                    loadingDiv.style.alignItems = "center";
+                    return;
+                }
+                setTimeout(() => {
+                    img.src = url + (url.includes('?') ? '&' : '?') + 'retry=' + Date.now();
+                }, 1000 * attempts);
+            };
             img.onload = () => {
                 loadingDiv.remove();
                 img.style.display = "block";
                 attachImageButtonListeners(img, imageId);
             };
-            img.onerror = () => {
-                loadingDiv.innerHTML = "⚠️ Failed to load image";
-                loadingDiv.style.display = "flex";
-                loadingDiv.style.justifyContent = "center";
-                loadingDiv.style.alignItems = "center";
-            };
+            img.onerror = tryReload;
             imageContainer.appendChild(img);
 
             const imgButtonContainer = document.createElement("div");
