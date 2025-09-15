@@ -167,13 +167,40 @@ document.addEventListener("DOMContentLoaded", () => {
         Object.assign(loadingDiv.style, { width: "512px", height: "512px" });
         imageContainer.appendChild(loadingDiv);
         const img = document.createElement("img");
-        img.src = url;
         img.alt = "AI Generated Image";
         img.className = "ai-generated-image";
         img.style.display = "none";
         img.dataset.imageUrl = url;
         img.dataset.imageId = imageId;
         img.crossOrigin = "anonymous";
+        imageContainer.appendChild(img);
+        const imgButtonContainer = document.createElement("div");
+        imgButtonContainer.className = "image-button-container";
+        imgButtonContainer.dataset.imageId = imageId;
+        imageContainer.appendChild(imgButtonContainer);
+
+        const loadViaPolli = async () => {
+            try {
+                const u = new URL(url);
+                const parts = u.pathname.split('/');
+                const i = parts.indexOf('prompt');
+                const prompt = i >= 0 && parts[i + 1] ? decodeURIComponent(parts[i + 1]) : '';
+                const model = u.searchParams.get('model') || undefined;
+                const width = u.searchParams.get('width') ? Number(u.searchParams.get('width')) : undefined;
+                const height = u.searchParams.get('height') ? Number(u.searchParams.get('height')) : undefined;
+                if (window.polliLib && window.polliClient && prompt) {
+                    const data = await window.polliLib.image(prompt, { model, width, height, json: true }, window.polliClient);
+                    const src = data?.url ? data.url : URL.createObjectURL(data);
+                    img.src = src;
+                } else {
+                    img.src = url;
+                }
+            } catch (e) {
+                console.warn('polliLib image failed', e);
+                img.src = url;
+            }
+        };
+
         let attempts = 0;
         const maxAttempts = 5;
         const tryReload = () => {
@@ -184,21 +211,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 loadingDiv.style.alignItems = "center";
                 return;
             }
-            setTimeout(() => {
-                img.src = url + (url.includes('?') ? '&' : '?') + 'retry=' + Date.now();
-            }, 1000 * attempts);
+            setTimeout(loadViaPolli, 1000 * attempts);
         };
+
         img.onload = () => {
             loadingDiv.remove();
             img.style.display = "block";
             attachImageButtons(img, imageId);
         };
         img.onerror = tryReload;
-        imageContainer.appendChild(img);
-        const imgButtonContainer = document.createElement("div");
-        imgButtonContainer.className = "image-button-container";
-        imgButtonContainer.dataset.imageId = imageId;
-        imageContainer.appendChild(imgButtonContainer);
+
+        loadViaPolli();
         return imageContainer;
     }
 
