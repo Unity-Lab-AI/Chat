@@ -64,8 +64,8 @@
   </head>
   <body>
     <div id="screensaver-container" class="screensaver hidden">
-      <img id="screensaver-image1" alt="Screensaver Image" style="opacity: 0;">
-      <img id="screensaver-image2" alt="Screensaver Image" style="opacity: 0;">
+      <img id="screensaver-image1" alt="Screensaver Image">
+      <img id="screensaver-image2" alt="Screensaver Image">
       <div id="screensaver-thumbnails-wrapper" class="screensaver-thumbnails-wrapper">
         <button id="screensaver-thumb-left" class="thumb-nav" aria-label="Scroll thumbnails left">&#9664;</button>
         <div id="screensaver-thumbnails" class="screensaver-thumbnails">
@@ -437,7 +437,7 @@
           <button id="voice-chat-modal-close" class="close-btn" title="Close Voice Chat Window">×</button>
         </div>
         <div class="modal-body">
-          <img id="voice-chat-image" src="" alt="Conversation Image" style="max-width: 100%; border-radius: 8px;">
+          <img id="voice-chat-image" src="" alt="Conversation Image">
           <p>Listening to your voice... Speak naturally, and I'll respond after pauses.</p>
         </div>
       </div>
@@ -447,19 +447,13 @@
         navigator.clipboard.writeText(text).then(() => {
           const popup = document.createElement("div");
           popup.textContent = "Address copied. Thank you!";
-          popup.style.position = "fixed";
-          popup.style.bottom = "20px";
-          popup.style.left = "50%";
-          popup.style.transform = "translateX(-50%)";
+          popup.className = "clipboard-popup";
           const bodyStyles = getComputedStyle(document.body);
           const bgMatch = bodyStyles.backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
           popup.style.backgroundColor = bgMatch
             ? `rgba(${bgMatch[1]}, ${bgMatch[2]}, ${bgMatch[3]}, 0.85)`
             : bodyStyles.backgroundColor;
           popup.style.color = bodyStyles.color;
-          popup.style.padding = "10px 20px";
-          popup.style.borderRadius = "5px";
-          popup.style.zIndex = "9999";
           document.body.appendChild(popup);
           setTimeout(() => {
             popup.style.opacity = "0";
