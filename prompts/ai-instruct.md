@@ -57,7 +57,13 @@ next section
 ## Images
 
 - Do not include external URLs.
-- Provide image prompts inside an `image` fenced block:
+- When image tools are available, respond with a JSON object instead of a fenced block:
+
+```json
+{"tool":"image","prompt":"a glowing neon cityscape at night with flying cars"}
+```
+
+- If tools are unavailable, provide image prompts inside an `image` fenced block:
 
 ```image
 a glowing neon cityscape at night with flying cars
@@ -121,7 +127,8 @@ tell me a joke in a calm tone
 
 - As an alternative to fenced blocks, respond with a JSON object.
 - The object may include:
-  - `tool` to invoke a tool (`image`, `tts`, or `ui`).
+  - `tool` to invoke a single tool (`image`, `tts`, or `ui`).
+  - `tools` to invoke multiple tools at once (each entry requires a `tool` field).
   - `text` for plain responses.
   - `image` or `images` with prompt strings to generate images.
   - `audio` with text for text-to-speech.
@@ -133,11 +140,11 @@ tell me a joke in a calm tone
 ```
 
 ```json
-{"text":"Hello there"}
+{"tools":[{"tool":"image","prompt":"a tiny house"},{"tool":"tts","text":"hello"}],"text":"Here you go"}
 ```
 
 ```json
-{"images":["a tiny house"],"text":"Here you go"}
+{"text":"Hello there"}
 ```
 
 - Always return valid JSON (double quotes, no trailing commas).

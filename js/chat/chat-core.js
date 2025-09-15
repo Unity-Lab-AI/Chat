@@ -447,20 +447,27 @@ document.addEventListener("DOMContentLoaded", () => {
     async function handleToolJson(raw, { imageUrls, audioUrls }) {
         const obj = (window.repairJson || (() => ({ text: raw })))(raw);
         let handled = false;
+        const texts = [];
 
-        if (obj.tool) {
-            const fn = toolbox.get(obj.tool);
+        const runTool = async spec => {
+            const fn = spec && toolbox.get(spec.tool);
             if (fn) {
                 try {
-                    const res = await fn(obj);
+                    const res = await fn(spec);
                     if (res?.imageUrl) imageUrls.push(res.imageUrl);
                     if (res?.audioUrl) audioUrls.push(res.audioUrl);
+                    if (res?.text) texts.push(res.text);
                     handled = true;
-                    return { handled: true, text: res?.text || '' };
                 } catch (e) {
                     console.warn('tool execution failed', e);
                 }
             }
+        };
+
+        if (Array.isArray(obj.tools)) {
+            for (const t of obj.tools) await runTool(t);
+        } else if (obj.tool) {
+            await runTool(obj);
         }
 
         const imgPrompts = obj.image ? [obj.image] : Array.isArray(obj.images) ? obj.images : [];
@@ -497,7 +504,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        const text = typeof obj.text === 'string' ? obj.text : raw;
+        if (typeof obj.text === 'string') texts.push(obj.text);
+        const text = texts.join('').trim() || raw;
         return { handled, text };
     }
 
@@ -779,7 +787,10 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const capsInfo = capabilities?.text?.[model];
             const chatParams = { model, messages };
-            if (capsInfo?.tools) chatParams.tools = toolDefinitions;
+            if (capsInfo?.tools) {
+                chatParams.tools = toolDefinitions;
+                chatParams.json = true;
+            }
             const data = await (window.polliLib?.chat?.(chatParams) ?? Promise.reject(new Error('polliLib not loaded')));
             loadingDiv.remove();
 
