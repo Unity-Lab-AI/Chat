@@ -1,4 +1,27 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const rootStyles = getComputedStyle(document.body);
+    const baseBg = rootStyles.backgroundColor;
+    const baseText = rootStyles.color;
+    function shade(color, amount) {
+        const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (!m) return color;
+        let [r, g, b] = m.slice(1).map(Number);
+        r = Math.min(255, Math.max(0, r + amount));
+        g = Math.min(255, Math.max(0, g + amount));
+        b = Math.min(255, Math.max(0, b + amount));
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+    const headerBg = shade(baseBg, -20);
+    const inputBg = shade(baseBg, -40);
+    const borderColor = shade(baseBg, -60);
+    const userBg = shade(baseBg, -40);
+    const aiBg = shade(baseBg, -20);
+    const actionBtnBg = shade(baseBg, -60);
+    const actionBtnHoverBg = shade(baseBg, -40);
+    const actionBtnDisabledBg = shade(baseBg, -80);
+    const spinnerBaseMatch = baseText.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    const spinnerBase = spinnerBaseMatch ? `rgba(${spinnerBaseMatch[1]}, ${spinnerBaseMatch[2]}, ${spinnerBaseMatch[3]}, 0.1)` : "rgba(0,0,0,0.1)";
+    const spinnerTop = shade(baseText, -40);
     const style = document.createElement("style");
     style.textContent = `
         #simple-mode-modal {
@@ -7,15 +30,15 @@ document.addEventListener("DOMContentLoaded", () => {
             left: 0;
             width: 100vw;
             height: 100vh;
-            background-color: #121212;
-            color: #ffffff;
+            background-color: ${baseBg};
+            color: ${baseText};
             z-index: 10000;
             display: flex;
             flex-direction: column;
         }
         .simple-header {
             padding: 10px;
-            background-color: #1e1e1e;
+            background-color: ${headerBg};
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -32,14 +55,14 @@ document.addEventListener("DOMContentLoaded", () => {
         .simple-input-container {
             display: flex;
             padding: 12px 15px;
-            background: #1e1e1e;
+            background: ${headerBg};
             align-items: center;
         }
         .simple-input {
             flex-grow: 1;
-            background: #333333;
-            color: #ffffff;
-            border: 1px solid #555555;
+            background: ${inputBg};
+            color: ${baseText};
+            border: 1px solid ${borderColor};
             border-radius: 20px;
             font-size: 14px;
             padding: 12px 15px;
@@ -51,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         .simple-input:focus {
             outline: none;
-            box-shadow: 0 0 0 2px rgba(100,100,100,0.3);
+            box-shadow: 0 0 0 2px ${shade(borderColor, 40)};
         }
         .simple-send-btn {
             background-color: #4CAF50;
@@ -74,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
             background: #45a049;
         }
         .simple-send-btn:disabled {
-            background: #555555;
+            background: ${actionBtnDisabledBg};
             cursor: not-allowed;
             opacity: 0.6;
         }
@@ -93,16 +116,16 @@ document.addEventListener("DOMContentLoaded", () => {
             to { opacity: 1; transform: translateY(0); }
         }
         .simple-user-message {
-            background-color: #333333;
-            color: #ffffff;
+            background-color: ${userBg};
+            color: ${baseText};
             float: right;
             border-bottom-right-radius: 6px;
             max-width: 40%;
             margin-right: 10px;
         }
         .simple-ai-message {
-            background-color: #444444;
-            color: #ffffff;
+            background-color: ${aiBg};
+            color: ${baseText};
             float: left;
             border-bottom-left-radius: 6px;
             max-width: 60%;
@@ -115,19 +138,19 @@ document.addEventListener("DOMContentLoaded", () => {
             flex-wrap: wrap;
         }
         .simple-action-btn {
-            background: #555555;
+            background: ${actionBtnBg};
             border: none;
             border-radius: 15px;
             padding: 6px 12px;
             font-size: 12px;
             cursor: pointer;
-            transition: all 0.2s ease;
-            color: #ffffff;
+            transition: background 0.2s ease;
+            color: ${baseText};
             min-width: 80px;
             text-align: center;
         }
         .simple-action-btn:hover {
-            background: #666666;
+            background: ${actionBtnHoverBg};
         }
         .simple-message-text {
             width: 100%;
@@ -143,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
             overflow: hidden;
         }
         .simple-ai-image-loading {
-            background-color: rgba(0,0,0,0.1);
+            background-color: ${spinnerBase};
             display: flex;
             align-items: center;
             justify-content: center;
@@ -153,9 +176,9 @@ document.addEventListener("DOMContentLoaded", () => {
             border-radius: 8px;
         }
         .simple-loading-spinner {
-            border: 4px solid rgba(0,0,0,0.1);
+            border: 4px solid ${spinnerBase};
             border-radius: 50%;
-            border-top: 4px solid #666666;
+            border-top: 4px solid ${spinnerTop};
             width: 40px;
             height: 40px;
             animation: spin 1s linear infinite;
