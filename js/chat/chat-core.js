@@ -410,17 +410,15 @@ document.addEventListener("DOMContentLoaded", () => {
         .register('image', async ({ prompt }) => {
             if (!(window.polliLib && window.polliClient)) return {};
             try {
-                const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                const blob = await window.polliLib.image(
                     prompt,
-                    width: 512,
-                    height: 512,
-                    private: true,
-                    nologo: true,
-                    safe: true
-                });
+                    { width: 512, height: 512, private: true, nologo: true, safe: true },
+                    window.polliClient
+                );
+                const url = blob?.url ? blob.url : URL.createObjectURL(blob);
                 return { imageUrl: url };
             } catch (e) {
-                console.warn('polliLib generateImageUrl failed', e);
+                console.warn('polliLib image failed', e);
                 return {};
             }
         })
@@ -474,11 +472,12 @@ document.addEventListener("DOMContentLoaded", () => {
         for (const prompt of imgPrompts) {
             if (!(window.polliLib && window.polliClient) || !prompt) continue;
             try {
-                const url = window.polliLib.mcp.generateImageUrl(window.polliClient, { prompt });
+                const blob = await window.polliLib.image(prompt, { width: 512, height: 512, private: true, nologo: true, safe: true }, window.polliClient);
+                const url = blob?.url ? blob.url : URL.createObjectURL(blob);
                 imageUrls.push(url);
                 handled = true;
             } catch (e) {
-                console.warn('polliLib generateImageUrl failed', e);
+                console.warn('polliLib image failed', e);
             }
         }
 
@@ -842,17 +841,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 await processPatterns(window.imagePatterns || [], async prompt => {
                     if (!(window.polliLib && window.polliClient)) return;
                     try {
-                        const url = window.polliLib.mcp.generateImageUrl(window.polliClient, {
+                        const blob = await window.polliLib.image(
                             prompt,
-                            width: 512,
-                            height: 512,
-                            private: true,
-                            nologo: true,
-                            safe: true
-                        });
+                            { width: 512, height: 512, private: true, nologo: true, safe: true },
+                            window.polliClient
+                        );
+                        const url = blob?.url ? blob.url : URL.createObjectURL(blob);
                         imageUrls.push(url);
                     } catch (e) {
-                        console.warn('polliLib generateImageUrl failed', e);
+                        console.warn('polliLib image failed', e);
                     }
                 });
 
