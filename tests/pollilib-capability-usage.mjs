@@ -24,9 +24,17 @@ const caps = await modelCapabilities(client);
 
 function buildOptions(model) {
   const opts = { model, messages: [] };
-  if (caps.text?.[model]?.tools) opts.tools = ['toolA'];
+  if (caps.text?.[model]?.tools) {
+    opts.tools = ['toolA'];
+    opts.json = true;
+  }
   return opts;
 }
 
-assert('tools' in buildOptions('bar'));
-assert(!('tools' in buildOptions('baz')));
+const withTools = buildOptions('bar');
+assert('tools' in withTools && withTools.json === true);
+const withoutTools = buildOptions('baz');
+assert(!('tools' in withoutTools));
+assert(!('json' in withoutTools));
+
+console.log('capability-usage test passed');

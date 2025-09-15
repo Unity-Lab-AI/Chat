@@ -39,6 +39,7 @@ const tools = [
 let imageUrl;
 let audioBlob;
 let uiRan = false;
+let returnedText;
 
 // Register tool implementations
 box: {
@@ -70,17 +71,36 @@ box: {
 
 async function dispatch(json) {
   const obj = JSON.parse(json);
-  const fn = toolbox.get(obj.tool);
-  assert(fn, `missing tool ${obj.tool}`);
-  return await fn(obj);
+  const texts = [];
+  if (Array.isArray(obj.tools)) {
+    for (const t of obj.tools) {
+      const fn = toolbox.get(t.tool);
+      assert(fn, `missing tool ${t.tool}`);
+      const res = await fn(t);
+      if (res?.text) texts.push(res.text);
+    }
+  } else if (obj.tool) {
+    const fn = toolbox.get(obj.tool);
+    assert(fn, `missing tool ${obj.tool}`);
+    const res = await fn(obj);
+    if (res?.text) texts.push(res.text);
+  }
+  if (obj.text) texts.push(obj.text);
+  return texts.join(' ').trim();
 }
 
-await dispatch('{"tool":"image","prompt":"tiny green square"}');
-await dispatch('{"tool":"tts","text":"ok"}');
-await dispatch('{"tool":"ui","command":{"action":"click","target":"ping"}}');
+returnedText = await dispatch(JSON.stringify({
+  tools: [
+    { tool: 'image', prompt: 'tiny green square' },
+    { tool: 'tts', text: 'ok' },
+    { tool: 'ui', command: { action: 'click', target: 'ping' } }
+  ],
+  text: 'done'
+}));
 
 assert(imageUrl && imageUrl.startsWith('http'), 'image url via polliLib');
 assert(audioBlob && typeof audioBlob.size === 'number', 'audio blob generated');
 assert(uiRan, 'ui command executed');
+assert.equal(returnedText, 'done');
 
 console.log('json-tools test passed');
