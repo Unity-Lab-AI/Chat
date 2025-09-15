@@ -451,8 +451,12 @@
           popup.style.bottom = "20px";
           popup.style.left = "50%";
           popup.style.transform = "translateX(-50%)";
-          popup.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-          popup.style.color = "#fff";
+          const bodyStyles = getComputedStyle(document.body);
+          const bgMatch = bodyStyles.backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+          popup.style.backgroundColor = bgMatch
+            ? `rgba(${bgMatch[1]}, ${bgMatch[2]}, ${bgMatch[3]}, 0.85)`
+            : bodyStyles.backgroundColor;
+          popup.style.color = bodyStyles.color;
           popup.style.padding = "10px 20px";
           popup.style.borderRadius = "5px";
           popup.style.zIndex = "9999";

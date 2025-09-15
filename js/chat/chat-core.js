@@ -1018,8 +1018,12 @@ document.addEventListener("DOMContentLoaded", () => {
             toast.style.top = "5%";
             toast.style.left = "50%";
             toast.style.transform = "translateX(-50%)";
-            toast.style.backgroundColor = "rgba(0,0,0,0.7)";
-            toast.style.color = "#fff";
+            const bodyStyles = getComputedStyle(document.body);
+            const bgMatch = bodyStyles.backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            toast.style.backgroundColor = bgMatch
+                ? `rgba(${bgMatch[1]}, ${bgMatch[2]}, ${bgMatch[3]}, 0.7)`
+                : bodyStyles.backgroundColor;
+            toast.style.color = bodyStyles.color;
             toast.style.padding = "10px 20px";
             toast.style.borderRadius = "5px";
             toast.style.zIndex = "9999";
