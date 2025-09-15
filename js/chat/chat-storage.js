@@ -25,15 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     }
-    function highlightAllCodeBlocks() {
-        if (!window.hljs) {
-            return;
-        }
-        const codeBlocks = chatBox.querySelectorAll("pre code");
-        codeBlocks.forEach((block) => {
-            hljs.highlightElement(block);
-        });
-    }
     function appendMessage({ role, content, index, imageUrls = [], audioUrls = [] }) {
         const container = document.createElement("div");
         container.classList.add("message");
@@ -149,7 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         chatBox.appendChild(container);
         chatBox.scrollTop = chatBox.scrollHeight;
-        highlightAllCodeBlocks();
+        window.highlightUtils?.highlightAllCodeBlocks(chatBox);
     }
     function downloadCodeAsTxt(codeContent, language) {
         const blob = new Blob([codeContent], { type: "text/plain" });
@@ -400,7 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 audioUrls: storedAudio
             });
         });
-        highlightAllCodeBlocks();
+        window.highlightUtils?.highlightAllCodeBlocks(chatBox);
         chatInput.disabled = false;
         chatInput.focus();
     }
@@ -450,14 +441,14 @@ document.addEventListener("DOMContentLoaded", () => {
             chatBox.scrollTop = chatBox.scrollHeight;
             window.sendToPolliLib(() => {
                 loadingDiv.remove();
-                highlightAllCodeBlocks();
+                window.highlightUtils?.highlightAllCodeBlocks(chatBox);
             }, newContent);
             showToast("User message updated and new response generated");
         } else {
             currentSession.messages[msgIndex].content = newContent;
             Storage.updateSessionMessages(currentSession.id, currentSession.messages);
             renderStoredMessages(currentSession.messages);
-            highlightAllCodeBlocks();
+            window.highlightUtils?.highlightAllCodeBlocks(chatBox);
             showToast("AI message updated");
         }
     }
@@ -498,7 +489,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log(`Sending re-generate request for user message: ${userMessage} (with unique suffix: ${uniqueUserMessage})`);
         window.sendToPolliLib(() => {
             loadingDiv.remove();
-            highlightAllCodeBlocks();
+            window.highlightUtils?.highlightAllCodeBlocks(chatBox);
             showToast("Response regenerated successfully");
         }, uniqueUserMessage);
     }
