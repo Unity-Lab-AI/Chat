@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { marked } from 'marked';
+import { marked } from '../js/marked.js';
 import { sanitizeMarkdown } from '../js/chat/markdown-sanitizer.js';
 
 const input = [
