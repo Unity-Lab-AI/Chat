@@ -1,7 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
     const { chatBox, chatInput, clearChatBtn, voiceToggleBtn, modelSelect, synth, autoSpeakEnabled, speakMessage, stopSpeaking, showToast, toggleSpeechRecognition, initSpeechRecognition, handleVoiceCommand, speakSentences } = window._chatInternals;
-    const imagePatterns = window.imagePatterns;
-
     // Thumbnail gallery for main UI removed; retaining screensaver-only implementation
 
     function generateSessionTitle(messages) {
@@ -25,6 +23,25 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     }
+    function getLatestImagePrompt(defaultPrompt = 'default scene') {
+        const currentSession = Storage.getCurrentSession();
+        const messages = currentSession?.messages || [];
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            const imageMeta = msg?.metadata?.images;
+            if (Array.isArray(imageMeta)) {
+                for (const info of imageMeta) {
+                    if (info && typeof info.prompt === 'string' && info.prompt.trim()) {
+                        return info.prompt.trim();
+                    }
+                }
+            }
+        }
+        const fallback = messages[messages.length - 1]?.content;
+        if (typeof fallback === 'string' && fallback.trim()) return fallback.trim();
+        return defaultPrompt;
+    }
+
     function appendMessage({ role, content, index, imageUrls = [], audioUrls = [] }) {
         const container = document.createElement("div");
         container.classList.add("message");
@@ -418,9 +435,9 @@ document.addEventListener("DOMContentLoaded", () => {
         chatInput.disabled = false;
         chatInput.focus();
     }
-    window.addNewMessage = function ({ role, content, imageUrls = [], audioUrls = [] }) {
+    window.addNewMessage = function ({ role, content, imageUrls = [], audioUrls = [], metadata = null }) {
         const currentSession = Storage.getCurrentSession();
-        currentSession.messages.push({ role, content, imageUrls, audioUrls });
+        currentSession.messages.push({ role, content, imageUrls, audioUrls, metadata });
         Storage.updateSessionMessages(currentSession.id, currentSession.messages);
         if (!window.polliClient || !window.polliClient.imageBase) {
             appendMessage({ role, content, index: currentSession.messages.length - 1, imageUrls, audioUrls });
@@ -651,16 +668,9 @@ document.addEventListener("DOMContentLoaded", () => {
     function startVoiceChatSlideshow() {
         if (slideshowInterval) clearInterval(slideshowInterval);
         const currentSession = Storage.getCurrentSession();
-        let lastMessage = currentSession.messages.slice(-1)[0]?.content || "default scene";
-        let imagePrompt = "";
-        for (const patternObj of imagePatterns) {
-            const match = lastMessage.match(patternObj.pattern);
-            if (match) {
-                imagePrompt = match[patternObj.group].trim();
-                break;
-            }
-        }
-        imagePrompt += ", origami";
+        let imagePrompt = getLatestImagePrompt('default scene');
+        if (!imagePrompt) imagePrompt = 'default scene';
+        imagePrompt = `${imagePrompt}, origami`;
         if (imagePrompt.length > 100) {
             imagePrompt = imagePrompt.substring(0, 100);
         }

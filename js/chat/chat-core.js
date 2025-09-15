@@ -442,72 +442,472 @@ document.addEventListener("DOMContentLoaded", () => {
             return {};
         });
 
-    async function handleToolJson(raw, { imageUrls, audioUrls }) {
-        const obj = (window.repairJson || (() => ({ text: raw })))(raw);
+    async function handleToolJson(raw, { imageUrls, audioUrls }, messageObj = null) {
+        const textFromSpecs = [];
         let handled = false;
-        const texts = [];
+        const structured = { images: [], audio: [], ui: [], voice: [] };
 
-        const runTool = async spec => {
-            const fn = spec && toolbox.get(spec.tool);
-            if (fn) {
-                try {
-                    const res = await fn(spec);
-                    if (res?.imageUrl) imageUrls.push(res.imageUrl);
-                    if (res?.audioUrl) audioUrls.push(res.audioUrl);
-                    if (res?.text) texts.push(res.text);
-                    handled = true;
-                } catch (e) {
-                    console.warn('tool execution failed', e);
+        const tryParseJson = (value) => {
+            if (typeof value !== 'string') return null;
+            const trimmed = value.trim();
+            if (!trimmed) return null;
+            try {
+                return JSON.parse(trimmed);
+            } catch (err) {
+                if (window.repairJson) {
+                    try {
+                        const repaired = window.repairJson(trimmed);
+                        if (repaired && typeof repaired === 'object') {
+                            const keys = Object.keys(repaired);
+                            if (!(keys.length === 1 && repaired.text === trimmed)) {
+                                return repaired;
+                            }
+                        }
+                    } catch (repairErr) {
+                        console.warn('repairJson failed', repairErr);
+                    }
+                }
+            }
+            return null;
+        };
+
+        const parseCommandString = (value) => {
+            if (typeof value !== 'string') return value;
+            const trimmed = value.trim();
+            if (!trimmed) return null;
+            const parsed = tryParseJson(trimmed);
+            if (parsed && typeof parsed === 'object') return parsed;
+            const tokens = trimmed.split(' ').map(part => part.trim()).filter(Boolean);
+            if (!tokens.length) return null;
+            const [action, ...rest] = tokens;
+            const target = rest.length ? rest.join(' ') : undefined;
+            return { action, target };
+        };
+
+        const parseArgPayload = (payload) => {
+            if (payload == null) return {};
+            if (typeof payload === 'string') {
+                const parsed = tryParseJson(payload);
+                if (parsed && typeof parsed === 'object') return parsed;
+                return { prompt: payload };
+            }
+            if (typeof payload === 'object') {
+                return Array.isArray(payload) ? { values: payload } : { ...payload };
+            }
+            return {};
+        };
+
+        const extractArgs = (source) => {
+            if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+            const argKeys = ['arguments', 'args', 'parameters', 'payload', 'data', 'input', 'options', 'values'];
+            for (const key of argKeys) {
+                if (source[key] != null) {
+                    const parsed = parseArgPayload(source[key]);
+                    if (parsed && Object.keys(parsed).length) return parsed;
+                }
+            }
+            const args = {};
+            for (const [key, value] of Object.entries(source)) {
+                if (value === undefined) continue;
+                if (['tool', 'name', 'type', 'function', 'tool_calls', 'tools', 'commands', 'command', 'ui', 'image', 'images', 'audio', 'tts', 'voice', 'speak'].includes(key)) continue;
+                if (['text', 'message', 'response', 'reply', 'description', 'caption'].includes(key)) continue;
+                args[key] = value;
+            }
+            if (source.prompt != null && args.prompt == null) args.prompt = source.prompt;
+            if (source.text != null && args.text == null) args.text = source.text;
+            if (source.command && typeof source.command === 'object' && args.command == null) args.command = source.command;
+            return args;
+        };
+
+        const pickString = (candidates) => {
+            for (const value of candidates) {
+                if (typeof value === 'string' && value.trim()) return value.trim();
+            }
+            return null;
+        };
+
+        const mapToolName = (name) => {
+            if (!name) return null;
+            const normalized = String(name).toLowerCase();
+            if (normalized.includes('image') || normalized.includes('picture') || normalized.includes('photo') || normalized.includes('draw') || normalized.includes('art')) {
+                return 'image';
+            }
+            if (normalized.includes('audio') || normalized.includes('speak') || normalized.includes('voice') || normalized.includes('sound') || normalized.includes('speech') || normalized.includes('tts')) {
+                return 'tts';
+            }
+            if (normalized.includes('ui') || normalized.includes('command') || normalized.includes('action') || normalized.includes('control')) {
+                return 'ui';
+            }
+            return normalized;
+        };
+
+        const executeTool = async (name, rawArgs = {}, original = null) => {
+            const canonical = mapToolName(name);
+            if (!canonical) return false;
+            const fn = toolbox.get(canonical);
+            if (!fn) return false;
+
+            let args = {};
+            if (rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs)) {
+                args = { ...rawArgs };
+            } else if (typeof rawArgs === 'string') {
+                args = { value: rawArgs };
+            }
+
+            if (canonical === 'image') {
+                const prompt = pickString([
+                    args.prompt,
+                    args.description,
+                    args.text,
+                    args.query,
+                    args.input,
+                    original?.prompt,
+                    original?.description,
+                    original?.text,
+                    typeof original === 'string' ? original : null
+                ]);
+                if (!prompt) return false;
+                args = { ...args, prompt };
+            } else if (canonical === 'tts') {
+                const textValue = pickString([
+                    args.text,
+                    args.prompt,
+                    args.speech,
+                    args.say,
+                    args.message,
+                    args.content,
+                    original?.text,
+                    original?.speech,
+                    original?.message,
+                    typeof original === 'string' ? original : null
+                ]);
+                if (!textValue) return false;
+                args = { ...args, text: textValue };
+            } else if (canonical === 'ui') {
+                let command = args.command ?? original?.command ?? args;
+                if (typeof command === 'string') {
+                    command = parseCommandString(command);
+                } else if (!command || Array.isArray(command)) {
+                    command = {
+                        action: args.action ?? original?.action,
+                        target: args.target ?? original?.target,
+                        value: args.value ?? original?.value
+                    };
+                }
+                if (typeof command === 'string') {
+                    command = parseCommandString(command);
+                }
+                if (!command || !validateUICommand(command)) return false;
+                args = { command };
+                structured.ui.push({ command });
+            }
+
+            try {
+                const result = await fn(args);
+                if (result?.imageUrl) {
+                    imageUrls.push(result.imageUrl);
+                    structured.images.push({ url: result.imageUrl, prompt: args.prompt ?? null, options: args });
+                }
+                if (result?.audioUrl) {
+                    audioUrls.push(result.audioUrl);
+                    structured.audio.push({ url: result.audioUrl, text: args.text ?? null, options: args });
+                }
+                if (typeof result?.text === 'string') {
+                    textFromSpecs.push(result.text);
+                }
+                handled = true;
+                return true;
+            } catch (e) {
+                console.warn('tool execution failed', e);
+            }
+            return false;
+        };
+
+        const processStructuredValue = async (value, parentToolName = null) => {
+            if (value == null) return;
+
+            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                const str = String(value).trim();
+                if (!str) return;
+                if (parentToolName) {
+                    if (parentToolName === 'voice') {
+                        structured.voice.push(str);
+                        return;
+                    }
+                    if (parentToolName === 'image') {
+                        await executeTool('image', { prompt: str }, str);
+                        return;
+                    }
+                    if (parentToolName === 'tts') {
+                        await executeTool('tts', { text: str }, str);
+                        return;
+                    }
+                    if (parentToolName === 'ui') {
+                        await executeTool('ui', { command: str }, str);
+                        return;
+                    }
+                    await executeTool(parentToolName, { value: str }, str);
+                    return;
+                }
+                textFromSpecs.push(str);
+                return;
+            }
+
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    await processStructuredValue(item, parentToolName);
+                }
+                return;
+            }
+
+            if (typeof value !== 'object') return;
+
+            if (parentToolName) {
+                if (parentToolName === 'voice') {
+                    const voiceText = pickString([
+                        value.text,
+                        value.message,
+                        value.prompt,
+                        value.say,
+                        value.response
+                    ]);
+                    if (voiceText) structured.voice.push(voiceText);
+                    return;
+                }
+                const args = extractArgs(value);
+                const executed = await executeTool(parentToolName, args, value);
+                if (executed) return;
+            }
+
+            if (Array.isArray(value.tool_calls)) {
+                for (const call of value.tool_calls) {
+                    await processStructuredValue(call);
+                }
+            }
+
+            if (Array.isArray(value.tools)) {
+                for (const tool of value.tools) {
+                    await processStructuredValue(tool);
+                }
+            }
+
+            if (Array.isArray(value.commands)) {
+                for (const cmd of value.commands) {
+                    await processStructuredValue({ tool: 'ui', ...cmd });
+                }
+            }
+
+            if (value.function && value.function.name) {
+                const args = parseArgPayload(value.function.arguments ?? value.function.args ?? value.function.parameters ?? value.function.payload);
+                await executeTool(value.function.name, args, value.function);
+            }
+
+            if (value.name && (value.arguments || value.args || value.parameters)) {
+                const args = parseArgPayload(value.arguments ?? value.args ?? value.parameters);
+                await executeTool(value.name, args, value);
+            }
+
+            if (value.tool) {
+                if (typeof value.tool === 'object') {
+                    await processStructuredValue(value.tool);
+                } else {
+                    const args = extractArgs(value);
+                    await executeTool(value.tool, args, value);
+                }
+            } else if (value.type) {
+                await executeTool(value.type, extractArgs(value), value);
+            }
+
+            if (value.image !== undefined) await processStructuredValue(value.image, 'image');
+            if (value.images !== undefined) await processStructuredValue(value.images, 'image');
+            if (value.audio !== undefined) await processStructuredValue(value.audio, 'tts');
+            if (value.tts !== undefined) await processStructuredValue(value.tts, 'tts');
+            if (value.voice !== undefined) await processStructuredValue(value.voice, 'voice');
+            if (value.speak !== undefined) await processStructuredValue(value.speak, 'tts');
+            if (value.ui !== undefined) await processStructuredValue(value.ui, 'ui');
+            if (value.command !== undefined) await processStructuredValue(value.command, 'ui');
+
+            const textKeys = ['text', 'message', 'response', 'reply', 'caption', 'description'];
+            for (const key of textKeys) {
+                if (typeof value[key] === 'string') {
+                    const trimmed = value[key].trim();
+                    if (trimmed) textFromSpecs.push(trimmed);
                 }
             }
         };
 
-        if (Array.isArray(obj.tools)) {
-            for (const t of obj.tools) await runTool(t);
-        } else if (obj.tool) {
-            await runTool(obj);
+        const extractJsonSections = (input) => {
+            if (typeof input !== 'string') return [];
+            const sections = [];
+            let start = -1;
+            let depth = 0;
+            let inString = false;
+            let escape = false;
+            for (let i = 0; i < input.length; i++) {
+                const char = input[i];
+                if (start === -1) {
+                    if (char === '{' || char === '[') {
+                        start = i;
+                        depth = 1;
+                        inString = false;
+                        escape = false;
+                    }
+                    continue;
+                }
+                if (escape) {
+                    escape = false;
+                    continue;
+                }
+                if (char === '\' && inString) {
+                    escape = true;
+                    continue;
+                }
+                if (char === '"') {
+                    inString = !inString;
+                    continue;
+                }
+                if (inString) continue;
+                if (char === '{' || char === '[') {
+                    depth += 1;
+                    continue;
+                }
+                if (char === '}' || char === ']') {
+                    depth -= 1;
+                    if (depth === 0) {
+                        const snippet = input.slice(start, i + 1);
+                        const parsed = tryParseJson(snippet);
+                        if (parsed !== null) {
+                            sections.push({ start, end: i + 1, value: parsed });
+                        }
+                        start = -1;
+                        depth = 0;
+                        inString = false;
+                        escape = false;
+                    } else if (depth < 0) {
+                        start = -1;
+                        depth = 0;
+                    }
+                }
+            }
+            return sections;
+        };
+
+        const handledFenceTypes = new Set(['image', 'audio', 'ui', 'voice', 'video']);
+        const instructions = [];
+        let leftoverText = typeof raw === 'string' ? raw : '';
+
+        if (typeof raw === 'string' && raw.trim()) {
+            const jsonSections = extractJsonSections(raw);
+            const segments = [];
+            let lastIndex = 0;
+            for (const section of jsonSections) {
+                if (section.start > lastIndex) {
+                    segments.push({ text: raw.slice(lastIndex, section.start), start: lastIndex });
+                }
+                instructions.push({ start: section.start, value: section.value });
+                lastIndex = section.end;
+            }
+            if (lastIndex < raw.length) {
+                segments.push({ text: raw.slice(lastIndex), start: lastIndex });
+            }
+
+            const cleanedSegments = [];
+            for (const segment of segments) {
+                const text = segment.text;
+                if (typeof text !== 'string' || text.indexOf('```') === -1) {
+                    cleanedSegments.push(text);
+                    continue;
+                }
+                let idx = 0;
+                let cleaned = '';
+                while (idx < text.length) {
+                    const fenceStart = text.indexOf('```', idx);
+                    if (fenceStart === -1) {
+                        cleaned += text.slice(idx);
+                        break;
+                    }
+                    const langLineEnd = text.indexOf('\n', fenceStart + 3);
+                    if (langLineEnd === -1) {
+                        cleaned += text.slice(idx);
+                        break;
+                    }
+                    const lang = text.slice(fenceStart + 3, langLineEnd).trim().toLowerCase();
+                    const fenceEnd = text.indexOf('```', langLineEnd + 1);
+                    if (fenceEnd === -1) {
+                        cleaned += text.slice(idx);
+                        break;
+                    }
+                    if (handledFenceTypes.has(lang)) {
+                        cleaned += text.slice(idx, fenceStart);
+                        const blockContent = text.slice(langLineEnd + 1, fenceEnd).trim();
+                        if (blockContent) {
+                            instructions.push({ start: segment.start + fenceStart, value: { fence: lang, content: blockContent } });
+                        }
+                        idx = fenceEnd + 3;
+                    } else {
+                        cleaned += text.slice(idx, fenceEnd + 3);
+                        idx = fenceEnd + 3;
+                    }
+                }
+                cleanedSegments.push(cleaned);
+            }
+            leftoverText = cleanedSegments.join('');
         }
 
-        const imgPrompts = obj.image ? [obj.image] : Array.isArray(obj.images) ? obj.images : [];
-        for (const prompt of imgPrompts) {
-            if (!(window.polliLib && window.polliClient) || !prompt) continue;
-            try {
-                const blob = await window.polliLib.image(prompt, { width: 512, height: 512, private: true, nologo: true, safe: true }, window.polliClient);
-                const url = blob?.url ? blob.url : URL.createObjectURL(blob);
-                imageUrls.push(url);
-                handled = true;
-            } catch (e) {
-                console.warn('polliLib image failed', e);
+        if (Array.isArray(messageObj?.tool_calls)) {
+            let offset = -1;
+            for (const call of messageObj.tool_calls) {
+                instructions.push({ start: offset, value: { toolCall: call } });
+                offset -= 1;
             }
         }
 
-        const audioText = obj.audio || obj.tts;
-        if (audioText && window.polliLib && window.polliClient) {
-            try {
-                const blob = await window.polliLib.tts(audioText, { model: 'openai-audio' }, window.polliClient);
-                const url = URL.createObjectURL(blob);
-                audioUrls.push(url);
-                handled = true;
-            } catch (e) {
-                console.warn('polliLib tts failed', e);
+        instructions.sort((a, b) => a.start - b.start);
+
+        for (const entry of instructions) {
+            const value = entry.value;
+            if (!value) continue;
+            if (value.toolCall) {
+                await processStructuredValue(value.toolCall);
+                continue;
+            }
+            if (value.fence) {
+                const lang = value.fence;
+                if (lang === 'voice') {
+                    structured.voice.push(value.content);
+                } else if (lang === 'image') {
+                    await processStructuredValue({ tool: 'image', prompt: value.content });
+                } else if (lang === 'audio') {
+                    await processStructuredValue({ tool: 'tts', text: value.content });
+                } else if (lang === 'ui') {
+                    await processStructuredValue({ tool: 'ui', command: value.content });
+                } else {
+                    await processStructuredValue({ tool: lang, prompt: value.content });
+                }
+                continue;
+            }
+            await processStructuredValue(value);
+        }
+
+        const cleanedLeftover = typeof leftoverText === 'string'
+            ? leftoverText.replace(/\n{3,}/g, '\n\n').trim()
+            : '';
+
+        const textParts = [];
+        if (cleanedLeftover) textParts.push(cleanedLeftover);
+        if (textFromSpecs.length) textParts.push(textFromSpecs.join('\n\n').trim());
+        const finalText = textParts.join('\n\n').trim();
+        const structuredResult = {};
+        for (const [key, value] of Object.entries(structured)) {
+            if (Array.isArray(value)) {
+                if (value.length) structuredResult[key] = value;
+            } else if (value) {
+                structuredResult[key] = value;
             }
         }
 
-        const command = obj.ui || obj.command;
-        if (command) {
-            if (validateUICommand(command)) {
-                try { executeCommand(command); } catch (e) { console.warn('executeCommand failed', e); }
-                handled = true;
-            } else {
-                console.warn('invalid ui command', command);
-            }
-        }
-
-        if (typeof obj.text === 'string') texts.push(obj.text);
-        const text = texts.join('').trim() || raw;
-        return { handled, text };
+        return { handled, text: finalText, structured: structuredResult };
     }
-
     function handleVoiceCommand(text) {
         return executeCommand(text);
     }
@@ -815,7 +1215,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 aiContent = messageObj.content || "";
             }
 
-            const toolRes = await handleToolJson(aiContent, { imageUrls, audioUrls });
+            const toolRes = await handleToolJson(aiContent, { imageUrls, audioUrls }, messageObj);
+            const structuredOutputs = toolRes.structured || {};
             aiContent = toolRes.text;
 
             const memRegex = /\[memory\]([\s\S]*?)\[\/memory\]/gi;
@@ -823,70 +1224,28 @@ document.addEventListener("DOMContentLoaded", () => {
             while ((m = memRegex.exec(aiContent)) !== null) Memory.addMemoryEntry(m[1].trim());
             aiContent = aiContent.replace(memRegex, "").trim();
 
-            if (aiContent) {
-                const processPatterns = async (patterns, handler) => {
-                    for (const { pattern, group } of patterns) {
-                        const grpIndex = typeof group === 'number' ? group : 1;
-                        const p = pattern.global ? pattern : new RegExp(pattern.source, pattern.flags + 'g');
-                        const matches = Array.from(aiContent.matchAll(p));
-                        for (const match of matches) {
-                            const captured = match[grpIndex] && match[grpIndex].trim();
-                            if (!captured) continue;
-                            try { await handler(captured); } catch (e) { console.warn('pattern handler failed', e); }
-                        }
-                        aiContent = aiContent.replace(p, '');
-                    }
-                };
-
-                await processPatterns(window.imagePatterns || [], async prompt => {
-                    if (!(window.polliLib && window.polliClient)) return;
+            if (structuredOutputs.voice) {
+                for (const voiceText of structuredOutputs.voice) {
+                    if (!voiceText) continue;
                     try {
-                        const blob = await window.polliLib.image(
-                            prompt,
-                            { width: 512, height: 512, private: true, nologo: true, safe: true },
-                            window.polliClient
-                        );
-                        const url = blob?.url ? blob.url : URL.createObjectURL(blob);
-                        imageUrls.push(url);
-                    } catch (e) {
-                        console.warn('polliLib image failed', e);
-                    }
-                });
-
-                await processPatterns(window.audioPatterns || [], async prompt => {
-                    if (!(window.polliLib && window.polliClient)) return;
-                    try {
-                        const blob = await window.polliLib.tts(prompt, { model: 'openai-audio' }, window.polliClient);
-                        const url = URL.createObjectURL(blob);
-                        audioUrls.push(url);
-                    } catch (e) {
-                        console.warn('polliLib tts failed', e);
-                    }
-                });
-
-                await processPatterns(window.uiPatterns || [], async command => {
-                    try { executeCommand(command); } catch (e) { console.warn('executeCommand failed', e); }
-                });
-
-                await processPatterns(window.videoPatterns || [], async prompt => {
-                    // Video handling to be implemented
-                });
-
-                await processPatterns(window.voicePatterns || [], async text => {
-                    try {
-                        const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+                        const sentences = voiceText.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
                         speakSentences(sentences);
                     } catch (e) {
                         console.warn('speakSentences failed', e);
                     }
-                });
+                }
+            }
 
+            if (aiContent) {
                 aiContent = aiContent.replace(/\n{3,}/g, '\n\n');
                 aiContent = aiContent.replace(/\n?---\n?/g, '\n\n---\n\n');
                 aiContent = aiContent.replace(/\n{3,}/g, '\n\n').trim();
             }
 
-            window.addNewMessage({ role: "ai", content: aiContent, imageUrls, audioUrls });
+            const hasMetadata = Object.values(structuredOutputs).some(value => Array.isArray(value) ? value.length > 0 : !!value);
+            const metadata = hasMetadata ? structuredOutputs : null;
+
+            window.addNewMessage({ role: "ai", content: aiContent, imageUrls, audioUrls, metadata });
             if (autoSpeakEnabled) {
                 const sentences = aiContent.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
                 speakSentences(sentences);
