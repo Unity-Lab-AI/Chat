@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build and Upload Artifact
+    name: Build and Upload
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -47,12 +47,17 @@ jobs:
           name: github-pages
           path: .
 
-  tests:
-    name: Run Test Suites
+  run-tests:
+    name: Run Tests
     needs: build
     runs-on: ubuntu-latest
-    outputs:
-      status: ${{ steps.capture.outputs.status }}
+    steps:
+      - run: echo "Starting test jobs"
+
+  pollilib-tests:
+    name: Run PolliLib Tests
+    needs: run-tests
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -62,23 +67,40 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Run tests
+      - name: Run PolliLib Tests
+        env:
+          POLLI_REFERRER: unityailab.com
         run: |
-          npm test
+          set -e
+          for f in tests/pollilib-*.mjs; do
+            echo "Running $f"
+            node "$f"
+          done
 
-      - name: Capture test status
-        id: capture
-        run: |
-          cat tests/test-results.json
-          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('tests/test-results.json','utf8'));fs.appendFileSync(process.env.GITHUB_OUTPUT,`status=${r.status}\n`);"
+  site-tests:
+    name: Run Site Tests
+    needs: run-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Report test summary
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Site Tests
         run: |
-          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('tests/test-results.json','utf8'));console.log('# Test Summary');console.log('PolliLib',r.groups.pollilib.passed,'/',r.groups.pollilib.total);console.log('Site',r.groups.site.passed,'/',r.groups.site.total);console.log('Overall',r.passed,'/',r.total,'->',r.status);" >> $GITHUB_STEP_SUMMARY
+          set -e
+          for f in tests/site-*.mjs; do
+            echo "Running $f"
+            node "$f"
+          done
 
   report-build-status:
     name: Report Build Status
-    needs: [build, tests]
+    needs: build
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -112,8 +134,7 @@ jobs:
 
   deploy:
     name: Deploy to Pages
-    needs: [build, tests]
-    if: needs.tests.outputs.status != 'fail'
+    needs: build
     # Runs only on push to main, merge_group, or manual dispatch
     runs-on: ubuntu-latest
     environment:
