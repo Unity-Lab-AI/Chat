@@ -1,6 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
     const { chatBox, chatInput, clearChatBtn, voiceToggleBtn, modelSelect, synth, autoSpeakEnabled, speakMessage, stopSpeaking, showToast, toggleSpeechRecognition, initSpeechRecognition, handleVoiceCommand, speakSentences } = window._chatInternals;
-    const imagePatterns = window.imagePatterns;
     const randomSeed = window.randomSeed;
     const generateSessionTitle = messages => {
         let title = messages.find(m => m.role === "ai")?.content.replace(/[#_*`]/g, "").trim() || "New Chat";
@@ -380,6 +379,25 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         imgButtonContainer.appendChild(openImgBtn);
     };
+    function getLatestImagePrompt(defaultPrompt = 'default scene') {
+        const currentSession = Storage.getCurrentSession();
+        const messages = currentSession?.messages || [];
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            const imageMeta = msg?.metadata?.images;
+            if (Array.isArray(imageMeta)) {
+                for (const info of imageMeta) {
+                    if (info && typeof info.prompt === 'string' && info.prompt.trim()) {
+                        return info.prompt.trim();
+                    }
+                }
+            }
+        }
+        const fallback = messages[messages.length - 1]?.content;
+        if (typeof fallback === 'string' && fallback.trim()) return fallback.trim();
+        return defaultPrompt;
+    }
+
     const renderStoredMessages = messages => {
         console.log("Rendering stored messages...");
         chatBox.innerHTML = "";
@@ -416,9 +434,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         window.highlightUtils?.highlightAllCodeBlocks(chatBox);
     };
-    window.addNewMessage = ({ role, content, imageUrls = [], audioUrls = [] }) => {
+    window.addNewMessage = ({ role, content, imageUrls = [], audioUrls = [], metadata = null }) => {
         const currentSession = Storage.getCurrentSession();
-        currentSession.messages.push({ role, content, imageUrls, audioUrls });
+        currentSession.messages.push({ role, content, imageUrls, audioUrls, metadata });
         Storage.updateSessionMessages(currentSession.id, currentSession.messages);
         if (!window.polliClient || !window.polliClient.imageBase) {
             appendMessage({ role, content, index: currentSession.messages.length - 1, imageUrls, audioUrls });
@@ -652,19 +670,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const startVoiceChatSlideshow = () => {
         if (slideshowInterval) clearInterval(slideshowInterval);
         const currentSession = Storage.getCurrentSession();
-        let lastMessage = currentSession.messages.slice(-1)[0]?.content || "default scene";
-        let imagePrompt = "";
-        for (const { pattern, group } of imagePatterns) {
-            const match = lastMessage.match(pattern);
-            if (match) {
-                imagePrompt = match[group].trim();
-                break;
-            }
-        }
-        if (!imagePrompt) {
-            imagePrompt = lastMessage.replace(/image|picture|show me|generate/gi, "").trim();
-        }
-        imagePrompt = imagePrompt.slice(0, 100) + ", photographic";
+        let imagePrompt = getLatestImagePrompt('default scene');
+        if (!imagePrompt) imagePrompt = 'default scene';
+        imagePrompt = imagePrompt.slice(0, 100) + ', photographic';
         const updateImage = () => {
             const seed = randomSeed();
             try {
