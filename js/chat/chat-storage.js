@@ -26,12 +26,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
     function highlightAllCodeBlocks() {
-        if (!window.Prism) {
+        if (!window.hljs) {
             return;
         }
         const codeBlocks = chatBox.querySelectorAll("pre code");
         codeBlocks.forEach((block) => {
-            Prism.highlightElement(block);
+            hljs.highlightElement(block);
         });
     }
     function appendMessage({ role, content, index, imageUrls = [], audioUrls = [] }) {

@@ -14,8 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
     const highlightAllCodeBlocks = () => {
-        if (!window.Prism) return;
-        chatBox.querySelectorAll("pre code").forEach(block => Prism.highlightElement(block));
+        if (!window.hljs) return;
+        chatBox.querySelectorAll("pre code").forEach(block => hljs.highlightElement(block));
     };
     const appendMessage = ({ role, content, index, imageUrls = [], audioUrls = [] }) => {
         const container = document.createElement("div");

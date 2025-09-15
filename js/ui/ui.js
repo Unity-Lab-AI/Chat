@@ -39,6 +39,14 @@ document.addEventListener("DOMContentLoaded", () => {
         document.head.appendChild(themeLinkElement);
     }
 
+    let codeThemeLink = document.getElementById("code-theme-link");
+    if (!codeThemeLink) {
+        codeThemeLink = document.createElement("link");
+        codeThemeLink.id = "code-theme-link";
+        codeThemeLink.rel = "stylesheet";
+        document.head.appendChild(codeThemeLink);
+    }
+
     const allThemes = [
         { value: "light", label: "Light", file: "themes/light.css" },
         { value: "dark", label: "Dark", file: "themes/dark.css" },
@@ -65,6 +73,37 @@ document.addEventListener("DOMContentLoaded", () => {
         { value: "serenity", label: "Serenity", file: "themes/serenity.css" }
     ];
 
+    const codeThemes = {
+        light: "github",
+        dark: "github-dark",
+        hacker: "monokai-sublime",
+        oled: "github-dark",
+        "subtle-light": "github",
+        burple: "tokyo-night-dark",
+        "pretty-pink": "atom-one-light",
+        nord: "nord",
+        "solarized-light": "solarized-light",
+        "solarized-dark": "solarized-dark",
+        "gruvbox-light": "gruvbox-light",
+        "gruvbox-dark": "gruvbox-dark",
+        cyberpunk: "shades-of-purple",
+        dracula: "dracula",
+        monokai: "monokai",
+        "material-dark": "atom-one-dark",
+        "material-light": "atom-one-light",
+        "pastel-dream": "a11y-light",
+        "ocean-breeze": "vs",
+        "vintage-paper": "school-book",
+        honeycomb: "googlecode",
+        "rainbow-throwup": "rainbow",
+        serenity: "a11y-light"
+    };
+
+    function setCodeTheme(themeValue) {
+        const hlTheme = codeThemes[themeValue] || "github-dark";
+        codeThemeLink.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${hlTheme}.min.css`;
+    }
+
     function populateThemeDropdowns() {
         themeSelect.innerHTML = "";
         themeSelectSettings.innerHTML = "";
@@ -90,6 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
         themeSelectSettings.value = savedTheme;
         const found = allThemes.find(t => t.value === savedTheme);
         themeLinkElement.href = found ? found.file : "themes/dark.css";
+        setCodeTheme(savedTheme);
     }
     loadUserTheme();
 
@@ -99,6 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
         themeSelectSettings.value = newThemeValue;
         const found = allThemes.find(t => t.value === newThemeValue);
         themeLinkElement.href = found ? found.file : "";
+        setCodeTheme(newThemeValue);
     }
 
     themeSelect.addEventListener("change", () => {
