@@ -111,11 +111,64 @@ document.addEventListener("DOMContentLoaded", () => {
         changeTheme(themeSelectSettings.value);
     });
 
+    const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function resolvePolliLib(timeoutMs = 10000) {
+        if (typeof window.awaitPolliLib === "function") {
+            try {
+                return await window.awaitPolliLib({ timeoutMs });
+            } catch (err) {
+                console.warn("awaitPolliLib failed, falling back to polling", err);
+            }
+        }
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            if (window.polliLib && (typeof window.polliLib.modelCapabilities === "function" || typeof window.polliLib.textModels === "function")) {
+                return window.polliLib;
+            }
+            await wait(100);
+        }
+        throw new Error("polliLib not ready");
+    }
+
+    function mergeCaps(currentCaps = {}, nextCaps = {}) {
+        const merged = { ...currentCaps };
+        if (nextCaps.image) merged.image = { ...(currentCaps.image || {}), ...nextCaps.image };
+        if (nextCaps.text) merged.text = { ...(currentCaps.text || {}), ...nextCaps.text };
+        if (nextCaps.audio) merged.audio = { ...(currentCaps.audio || {}), ...nextCaps.audio };
+        if (nextCaps.tools) merged.tools = { ...(currentCaps.tools || {}), ...nextCaps.tools };
+        return merged;
+    }
+
     async function fetchPollinationsModels() {
         try {
-            const caps = await (window.polliLib?.modelCapabilities?.() ?? Promise.reject(new Error('polliLib not loaded')));
-            window.pollinationsCaps = caps;
-            const models = Object.entries(caps.text || {}).map(([name, info]) => ({ name, ...(info || {}) }));
+            const polliLib = await resolvePolliLib();
+            const client = window.polliClient || undefined;
+            let caps;
+            try {
+                caps = await polliLib.modelCapabilities(client);
+            } catch (capErr) {
+                console.warn("modelCapabilities call failed, attempting textModels fallback", capErr);
+                if (typeof polliLib.textModels !== "function") {
+                    throw capErr;
+                }
+                const textList = await polliLib.textModels(client);
+                const textArray = Array.isArray(textList) ? textList : Object.values(textList || {});
+                const textCaps = {};
+                for (const info of textArray) {
+                    if (!info || typeof info !== "object") continue;
+                    const modelName = info.name || info.id;
+                    if (!modelName) continue;
+                    textCaps[modelName] = { ...(info || {}) };
+                }
+                if (Object.keys(textCaps).length === 0) {
+                    throw capErr;
+                }
+                caps = { text: textCaps };
+            }
+
+            window.pollinationsCaps = mergeCaps(window.pollinationsCaps, caps);
+            const models = Object.entries(window.pollinationsCaps.text || {}).map(([name, info]) => ({ name, ...(info || {}) }));
             modelSelect.innerHTML = "";
             let hasValidModel = false;
 
