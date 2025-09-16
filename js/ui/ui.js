@@ -111,80 +111,152 @@ document.addEventListener("DOMContentLoaded", () => {
         changeTheme(themeSelectSettings.value);
     });
 
-    async function fetchPollinationsModels() {
-        try {
-            const caps = await (window.polliLib?.modelCapabilities?.() ?? Promise.reject(new Error('polliLib not loaded')));
-            window.pollinationsCaps = caps;
-            const models = Object.entries(caps.text || {}).map(([name, info]) => ({ name, ...(info || {}) }));
-            modelSelect.innerHTML = "";
-            let hasValidModel = false;
+    const MODEL_FETCH_MAX_RETRIES = 3;
 
-            if (!Array.isArray(models) || models.length === 0) {
-                console.error("Models response is not a valid array or is empty:", models);
-                throw new Error("Invalid models response");
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function waitForPolliLib(timeoutMs = 5000, intervalMs = 100) {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+            if (window.polliLib?.modelCapabilities) {
+                return window.polliLib;
+            }
+            await sleep(intervalMs);
+        }
+        throw new Error("polliLib not ready");
+    }
+
+    async function fetchPollinationsModels(attempt = 0) {
+        if (!modelSelect) return;
+        if (!window.Storage || typeof Storage.getCurrentSession !== "function") {
+            if (attempt < MODEL_FETCH_MAX_RETRIES) {
+                setTimeout(() => fetchPollinationsModels(attempt + 1), 200);
+            }
+            return;
+        }
+        try {
+            const polli = await waitForPolliLib();
+            const caps = await polli.modelCapabilities(window.polliClient);
+            if (!caps || !caps.text) {
+                throw new Error("Missing text capabilities from pollinations response");
+            }
+            window.pollinationsCaps = caps;
+            if (window._chatInternals) {
+                window._chatInternals.capabilities = caps;
             }
 
-            models.forEach(m => {
-                if (m && m.name) {
-                    const opt = document.createElement("option");
-                    opt.value = m.name;
-                    opt.textContent = m.description || m.name;
+            const entries = Object.entries(caps.text || {});
+            if (!entries.length) {
+                throw new Error("No text models returned from pollinations");
+            }
 
-                    let tooltip = m.description || m.name;
-                    if (m.censored !== undefined) {
-                        tooltip += m.censored ? " (Censored)" : " (Uncensored)";
-                    }
-                    if (m.reasoning) tooltip += " | Reasoning";
-                    if (m.vision) tooltip += " | Vision";
-                    if (m.audio) tooltip += " | Audio: " + (m.audio.voices ? m.audio.voices.join(", ") : "N/A");
-                    if (m.provider) tooltip += " | Provider: " + m.provider;
+            const fragment = document.createDocumentFragment();
+            const availableModelNames = [];
 
-                    opt.title = tooltip;
-                    modelSelect.appendChild(opt);
-                    hasValidModel = true;
-                } else {
-                    console.warn("Skipping invalid model entry:", m);
+            entries.forEach(([name, info]) => {
+                if (!name) {
+                    console.warn("Skipping model entry with empty name", info);
+                    return;
                 }
+                const details = info || {};
+                const option = document.createElement("option");
+                option.value = name;
+                const label = details.displayName || details.title || details.description || name;
+                option.textContent = label;
+
+                const tooltipParts = [];
+                if (details.description && details.description !== label) {
+                    tooltipParts.push(details.description);
+                }
+                if (details.censored !== undefined) {
+                    tooltipParts.push(details.censored ? "Censored" : "Uncensored");
+                }
+                if (details.reasoning) tooltipParts.push("Reasoning");
+                if (details.vision) tooltipParts.push("Vision");
+                if (details.audio) {
+                    const voices = Array.isArray(details.audio.voices) ? details.audio.voices.join(", ") : null;
+                    tooltipParts.push(voices ? `Audio: ${voices}` : "Audio");
+                }
+                if (details.provider) tooltipParts.push(`Provider: ${details.provider}`);
+                option.title = tooltipParts.length ? tooltipParts.join(" | ") : label;
+
+                fragment.appendChild(option);
+                availableModelNames.push(name);
             });
 
+            if (!availableModelNames.length) {
+                throw new Error("Model list was empty after filtering invalid entries");
+            }
+
+            modelSelect.innerHTML = "";
+            modelSelect.appendChild(fragment);
+            window.availableTextModels = availableModelNames.slice();
+
             const currentSession = Storage.getCurrentSession();
-            const preferredModel = currentSession?.model || Storage.getDefaultModel();
-            if (preferredModel) {
-                const exists = Array.from(modelSelect.options).some(option => option.value === preferredModel);
-                if (exists) {
-                    modelSelect.value = preferredModel;
-                } else {
-                    const tempOpt = document.createElement("option");
-                    tempOpt.value = preferredModel;
-                    tempOpt.textContent = `${preferredModel} (Previously Selected - May Be Unavailable)`;
-                    tempOpt.title = "This model may no longer be available";
-                    modelSelect.appendChild(tempOpt);
-                    modelSelect.value = preferredModel;
-                    console.warn(`Model ${preferredModel} not found in fetched list. Added as unavailable option.`);
+            const savedModel = currentSession?.model || Storage.getDefaultModel();
+            let selectedModel = savedModel && availableModelNames.includes(savedModel) ? savedModel : null;
+
+            if (!selectedModel) {
+                if (savedModel) {
+                    const unavailableOpt = document.createElement("option");
+                    unavailableOpt.value = savedModel;
+                    unavailableOpt.textContent = `${savedModel} (Unavailable)`;
+                    unavailableOpt.disabled = true;
+                    unavailableOpt.dataset.unavailable = "true";
+                    modelSelect.appendChild(unavailableOpt);
+                    console.warn(`Model ${savedModel} not found in fetched list. Defaulting to first available model.`);
+                }
+                selectedModel = availableModelNames[0] || "";
+                if (selectedModel) {
+                    if (currentSession && currentSession.model !== selectedModel) {
+                        Storage.setSessionModel(currentSession.id, selectedModel);
+                    } else if (!currentSession) {
+                        Storage.setDefaultModel(selectedModel);
+                    }
                 }
             }
 
-            if (window.updateCapabilityUI) window.updateCapabilityUI(modelSelect.value);
-
-            if (!modelSelect.value && modelSelect.options.length > 0) {
-                const unityOption = Array.from(modelSelect.options).find(opt => opt.value === "unity");
-                const firstModel = unityOption ? unityOption.value : modelSelect.options[0].value;
-                modelSelect.value = firstModel;
-                if (currentSession) {
-                    Storage.setSessionModel(currentSession.id, firstModel);
+            if (selectedModel) {
+                modelSelect.value = selectedModel;
+                const storedDefault = localStorage.getItem("defaultModelPreference");
+                if (storedDefault !== selectedModel) {
+                    Storage.setDefaultModel(selectedModel);
                 }
             }
+
+            if (window.updateCapabilityUI && modelSelect.value) {
+                window.updateCapabilityUI(modelSelect.value);
+            }
+
+            if (window._chatInternals) {
+                window._chatInternals.modelSelect = modelSelect;
+            }
+
+            document.dispatchEvent(new CustomEvent("pollinations-models-loaded", {
+                detail: {
+                    models: availableModelNames.slice(),
+                    selectedModel: modelSelect.value,
+                    capabilities: caps
+                }
+            }));
         } catch (err) {
             console.error("Failed to fetch text models:", err);
             modelSelect.innerHTML = "";
-            const currentSession = Storage.getCurrentSession();
-            const fallbackModel = currentSession?.model || Storage.getDefaultModel();
+            const currentSession = window.Storage?.getCurrentSession?.();
+            const fallbackModel = currentSession?.model || (window.Storage?.getDefaultModel?.() ?? "");
             if (fallbackModel) {
                 const sessOpt = document.createElement("option");
                 sessOpt.value = fallbackModel;
                 sessOpt.textContent = `${fallbackModel} (From Session - May Be Unavailable)`;
                 modelSelect.appendChild(sessOpt);
                 modelSelect.value = fallbackModel;
+                if (window.updateCapabilityUI) {
+                    window.updateCapabilityUI(fallbackModel);
+                }
+            }
+            if (attempt < MODEL_FETCH_MAX_RETRIES) {
+                const delay = 500 * (attempt + 1);
+                setTimeout(() => fetchPollinationsModels(attempt + 1), delay);
             }
         }
     }
