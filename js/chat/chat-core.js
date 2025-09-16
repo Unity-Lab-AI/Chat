@@ -386,6 +386,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
     }
 
+    const applyPollinationsAuth = (url) => {
+        if (!url) return url;
+        try {
+            return window.ensurePollinationsUrlAuth ? window.ensurePollinationsUrlAuth(url) : url;
+        } catch {
+            return url;
+        }
+    };
+
     const polliTools = window.polliLib?.tools;
     const toolDefinitions = polliTools ? [
         polliTools.functionTool('image', 'Generate an image', {
@@ -410,13 +419,21 @@ document.addEventListener("DOMContentLoaded", () => {
         .register('image', async ({ prompt }) => {
             if (!(window.polliLib && window.polliClient)) return {};
             try {
-                const blob = await window.polliLib.image(
+                const baseOptions = { width: 512, height: 512, private: true, nologo: true, safe: true };
+                const result = await window.polliLib.image(
                     prompt,
-                    { width: 512, height: 512, private: true, nologo: true, safe: true },
+                    { ...baseOptions, json: true },
                     window.polliClient
                 );
-                const url = blob?.url ? blob.url : URL.createObjectURL(blob);
-                return { imageUrl: url };
+                let url = typeof result === 'object' && result?.url ? result.url : null;
+                if (!url && window.polliLib?.mcp?.generateImageUrl) {
+                    url = window.polliLib.mcp.generateImageUrl(window.polliClient, { ...baseOptions, prompt });
+                }
+                if (!url && result && typeof URL?.createObjectURL === 'function') {
+                    url = URL.createObjectURL(result);
+                }
+                const finalUrl = applyPollinationsAuth(url);
+                return finalUrl ? { imageUrl: finalUrl } : {};
             } catch (e) {
                 console.warn('polliLib image failed', e);
                 return {};
@@ -605,8 +622,11 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const result = await fn(args);
                 if (result?.imageUrl) {
-                    imageUrls.push(result.imageUrl);
-                    structured.images.push({ url: result.imageUrl, prompt: args.prompt ?? null, options: args });
+                    const finalUrl = applyPollinationsAuth(result.imageUrl);
+                    if (finalUrl) {
+                        imageUrls.push(finalUrl);
+                        structured.images.push({ url: finalUrl, prompt: args.prompt ?? null, options: args });
+                    }
                 }
                 if (result?.audioUrl) {
                     audioUrls.push(result.audioUrl);
@@ -1206,7 +1226,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else if (part.type === 'text' && part.text) {
                         aiContent += part.text;
                     } else if (part.type === 'image_url' && part.image_url?.url) {
-                        imageUrls.push(part.image_url.url);
+                        imageUrls.push(applyPollinationsAuth(part.image_url.url));
                     } else if (part.type === 'audio' && part.audio?.url) {
                         audioUrls.push(part.audio.url);
                     }

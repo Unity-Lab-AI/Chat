@@ -208,6 +208,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const existingModal = document.getElementById("simple-mode-modal");
         if (existingModal) existingModal.remove();
 
+        const securePollinationsUrl = (url) => {
+            if (!url) return url;
+            try {
+                return window.ensurePollinationsUrlAuth ? window.ensurePollinationsUrlAuth(url) : url;
+            } catch {
+                return url;
+            }
+        };
+
         const modal = document.createElement("div");
         modal.id = "simple-mode-modal";
 
@@ -342,16 +351,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 const imgRegex = new RegExp(`${escaped}/prompt/[^\\s)]+`, 'g');
                 const matches = content.match(imgRegex) || [];
                 let lastIndex = 0;
-                matches.forEach((url) => {
-                    const matchIndex = content.indexOf(url, lastIndex);
+                matches.forEach((rawUrl) => {
+                    const matchIndex = content.indexOf(rawUrl, lastIndex);
                     if (matchIndex > lastIndex) {
                         const textPart = content.substring(lastIndex, matchIndex);
                         const textNode = document.createTextNode(textPart);
                         bubbleContent.appendChild(textNode);
                     }
-                    const imageContainer = createSimpleImageElement(url, index);
+                    const imageContainer = createSimpleImageElement(securePollinationsUrl(rawUrl), index);
                     bubbleContent.appendChild(imageContainer);
-                    lastIndex = matchIndex + url.length;
+                    lastIndex = matchIndex + rawUrl.length;
                 });
                 if (lastIndex < content.length) {
                     const textPart = content.substring(lastIndex);
@@ -435,11 +444,13 @@ document.addEventListener("DOMContentLoaded", () => {
             imageContainer.appendChild(loadingDiv);
 
             const img = document.createElement("img");
-            img.src = url;
+            const normalizedUrl = securePollinationsUrl(url);
+            img.src = normalizedUrl || url;
             img.alt = "AI Generated Image";
             img.className = "simple-ai-generated-image";
             img.style.display = "none";
-            img.dataset.imageUrl = url;
+            const dataUrl = normalizedUrl || url;
+            img.dataset.imageUrl = dataUrl;
             img.dataset.imageId = imageId;
             img.crossOrigin = "anonymous";
 
@@ -454,7 +465,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
                 setTimeout(() => {
-                    img.src = url + (url.includes('?') ? '&' : '?') + 'retry=' + Date.now();
+                    const baseUrl = dataUrl || url;
+                    if (!baseUrl) return;
+                    img.src = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'retry=' + Date.now();
                 }, 1000 * attempts);
             };
             img.onload = () => {

@@ -45,7 +45,11 @@
     if (!newUrlObj.searchParams.has('referrer') && global.polliClient?.referrer) {
       newUrlObj.searchParams.set('referrer', global.polliClient.referrer);
     }
-    return { url: newUrlObj.toString() };
+    let final = newUrlObj.toString();
+    if (typeof global.ensurePollinationsUrlAuth === 'function') {
+      final = global.ensurePollinationsUrlAuth(final);
+    }
+    return { url: final };
   }
   global.refreshPolliImage = refreshPolliImage;
 })(window);
