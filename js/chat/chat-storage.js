@@ -1,5 +1,13 @@
 document.addEventListener("DOMContentLoaded", () => {
     const { chatBox, chatInput, clearChatBtn, voiceToggleBtn, modelSelect, synth, autoSpeakEnabled, speakMessage, stopSpeaking, showToast, toggleSpeechRecognition, initSpeechRecognition, handleVoiceCommand, speakSentences } = window._chatInternals;
+    const securePollinationsUrl = (url) => {
+        if (!url) return url;
+        try {
+            return window.ensurePollinationsUrlAuth ? window.ensurePollinationsUrlAuth(url) : url;
+        } catch {
+            return url;
+        }
+    };
     // Thumbnail gallery for main UI removed; retaining screensaver-only implementation
 
     function generateSessionTitle(messages) {
@@ -43,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function appendMessage({ role, content, index, imageUrls = [], audioUrls = [] }) {
+        const normalizedImages = Array.isArray(imageUrls) ? imageUrls.map(securePollinationsUrl) : [];
         const container = document.createElement("div");
         container.classList.add("message");
         container.dataset.index = index;
@@ -67,8 +76,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 ? window.sanitizeMarkdown(content, window.blockedFenceTypes)
                 : content;
             bubbleContent.innerHTML = marked.parse(sanitized);
-            if (imageUrls.length > 0) {
-                imageUrls.forEach(url => {
+            if (normalizedImages.length > 0) {
+                normalizedImages.forEach(url => {
                     const imageContainer = createImageElement(url);
                     bubbleContent.appendChild(imageContainer);
                 });
@@ -187,7 +196,8 @@ document.addEventListener("DOMContentLoaded", () => {
         img.alt = "AI Generated Image";
         img.className = "ai-generated-image";
         img.style.display = "none";
-        img.dataset.imageUrl = url;
+        const normalizedUrl = securePollinationsUrl(url);
+        img.dataset.imageUrl = normalizedUrl;
         img.dataset.imageId = imageId;
         img.crossOrigin = "anonymous";
         imageContainer.appendChild(img);
@@ -198,7 +208,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const loadViaPolli = async () => {
             try {
-                const u = new URL(url);
+                const targetUrl = normalizedUrl || url;
+                const u = new URL(targetUrl);
                 const parts = u.pathname.split('/');
                 const i = parts.indexOf('prompt');
                 const prompt = i >= 0 && parts[i + 1] ? decodeURIComponent(parts[i + 1]) : '';
@@ -207,14 +218,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 const height = u.searchParams.get('height') ? Number(u.searchParams.get('height')) : undefined;
                 if (window.polliLib && window.polliClient && prompt) {
                     const data = await window.polliLib.image(prompt, { model, width, height, json: true }, window.polliClient);
-                    const src = data?.url ? data.url : URL.createObjectURL(data);
+                    const src = data?.url ? securePollinationsUrl(data.url) : URL.createObjectURL(data);
                     img.src = src;
                 } else {
-                    img.src = url;
+                    img.src = normalizedUrl || url;
                 }
             } catch (e) {
                 console.warn('polliLib image failed', e);
-                img.src = url;
+                img.src = normalizedUrl || url;
             }
         };
 
@@ -410,7 +421,7 @@ document.addEventListener("DOMContentLoaded", () => {
         chatBox.innerHTML = "";
         messages.forEach((msg, idx) => {
             console.log(`Appending message at index ${idx}: ${msg.role}`);
-            const storedImages = Array.isArray(msg.imageUrls) ? msg.imageUrls : [];
+            const storedImages = Array.isArray(msg.imageUrls) ? msg.imageUrls.map(securePollinationsUrl) : [];
             const storedAudio = Array.isArray(msg.audioUrls) ? msg.audioUrls : [];
             let imgMatches = storedImages;
             if (imgMatches.length === 0 && msg.content) {
@@ -418,7 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const baseList = [ window.polliClient.imageBase ];
                     const escaped = baseList.map(b => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
                     const imgRegex = new RegExp(`(${escaped.join('|')})/prompt/[^ ]+`, 'g');
-                    imgMatches = msg.content.match(imgRegex) || [];
+                    imgMatches = (msg.content.match(imgRegex) || []).map(securePollinationsUrl);
                 } else {
                     imgMatches = [];
                 }
@@ -437,17 +448,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     window.addNewMessage = function ({ role, content, imageUrls = [], audioUrls = [], metadata = null }) {
         const currentSession = Storage.getCurrentSession();
-        currentSession.messages.push({ role, content, imageUrls, audioUrls, metadata });
+        const normalizedImages = Array.isArray(imageUrls) ? imageUrls.map(securePollinationsUrl) : [];
+        currentSession.messages.push({ role, content, imageUrls: normalizedImages, audioUrls, metadata });
         Storage.updateSessionMessages(currentSession.id, currentSession.messages);
         if (!window.polliClient || !window.polliClient.imageBase) {
-            appendMessage({ role, content, index: currentSession.messages.length - 1, imageUrls, audioUrls });
+            appendMessage({ role, content, index: currentSession.messages.length - 1, imageUrls: normalizedImages, audioUrls });
             if (role === "ai") checkAndUpdateSessionTitle();
             return;
         }
         const base = window.polliClient.imageBase;
         const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const imgRegex = new RegExp(`(${escaped}\/prompt\/[^ ]+)`, 'g');
-        const imgMatches = imageUrls.length > 0 ? imageUrls : (content.match(imgRegex) || []);
+        const imgMatchesRaw = normalizedImages.length > 0 ? normalizedImages : (content.match(imgRegex) || []);
+        const imgMatches = imgMatchesRaw.map(securePollinationsUrl);
         appendMessage({
             role,
             content,
