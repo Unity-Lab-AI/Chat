@@ -114,6 +114,158 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error('polliLib not ready');
     }
 
+    async function ensurePollinationsClient() {
+        const polliLib = await resolvePolliLib();
+        let client = window.polliClient;
+        if (!client && typeof polliLib.getDefaultClient === 'function') {
+            try {
+                client = polliLib.getDefaultClient();
+            } catch (err) {
+                console.warn('getDefaultClient failed in chat-core', err);
+            }
+        }
+        if (!client || typeof client.postJson !== 'function') {
+            throw new Error('polliLib client unavailable');
+        }
+        return { polliLib, client };
+    }
+
+    function shouldRequestJsonResponse(info) {
+        if (!info) return false;
+        if (info.jsonMode === true || info.json_mode === true || info.json === true) return true;
+        const respFormat = info.response_format || info.responseFormat;
+        if (typeof respFormat === 'string' && respFormat.toLowerCase().includes('json')) return true;
+        if (respFormat && typeof respFormat === 'object') {
+            const type = respFormat.type || respFormat.format || respFormat.name;
+            if (typeof type === 'string' && type.toLowerCase().includes('json')) return true;
+        }
+        if (info.tools) {
+            if (info.tools === true) return true;
+            if (typeof info.tools === 'object') {
+                if (info.tools.jsonMode === true || info.tools.json === true) return true;
+                const nested = info.tools.response_format || info.tools.responseFormat;
+                if (typeof nested === 'string' && nested.toLowerCase().includes('json')) return true;
+                if (nested && typeof nested === 'object') {
+                    const nestedType = nested.type || nested.format || nested.name;
+                    if (typeof nestedType === 'string' && nestedType.toLowerCase().includes('json')) return true;
+                }
+                if (Object.keys(info.tools).length > 0) return true;
+            }
+        }
+        return false;
+    }
+
+    async function postChatCompletion(polliLib, client, payload) {
+        if (!payload || typeof payload !== 'object') throw new Error('chat payload missing');
+        const body = {
+            model: payload.model,
+            messages: Array.isArray(payload.messages) ? payload.messages : [],
+        };
+        const optionalKeys = [
+            'seed', 'temperature', 'top_p', 'presence_penalty', 'frequency_penalty',
+            'max_tokens', 'stream', 'private', 'tools', 'tool_choice', 'referrer'
+        ];
+        for (const key of optionalKeys) {
+            if (payload[key] !== undefined) {
+                body[key] = payload[key];
+            }
+        }
+        if (payload.response_format) {
+            body.response_format = payload.response_format;
+        } else if (payload.jsonMode === true) {
+            body.response_format = { type: 'json_object' };
+        }
+        if (body.tools && body.tool_choice == null) {
+            body.tool_choice = 'auto';
+        }
+        const requestOptions = payload.stream ? { headers: { 'Accept': 'text/event-stream' } } : {};
+        const response = await client.postJson(`${client.textBase}/openai`, body, requestOptions);
+        if (!response.ok) {
+            const error = new Error(`chat error ${response.status}`);
+            error.status = response.status;
+            try {
+                error.body = await response.text();
+            } catch {}
+            throw error;
+        }
+        if (payload.stream) {
+            throw new Error('Streaming chat responses are not supported in chat-core');
+        }
+        return await response.json();
+    }
+
+    async function executeChatWithTools(basePayload, { polliLib, client, toolbox, maxRounds = 3 } = {}) {
+        if (!polliLib || !client) throw new Error('polliLib client unavailable');
+        const effectiveToolbox = toolbox && typeof toolbox.get === 'function' ? toolbox : null;
+        const executedTools = [];
+        const base = { ...basePayload };
+        const history = Array.isArray(basePayload.messages)
+            ? basePayload.messages.map(msg => ({ ...msg }))
+            : [];
+        delete base.messages;
+
+        const runOnce = async (messages) => {
+            return await postChatCompletion(polliLib, client, { ...base, messages });
+        };
+
+        if (!effectiveToolbox) {
+            const data = await runOnce(history);
+            return { data, executedTools };
+        }
+
+        for (let round = 0; round <= maxRounds; round++) {
+            const data = await runOnce(history);
+            const message = data?.choices?.[0]?.message ?? {};
+            const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+            if (!toolCalls.length) {
+                return { data, executedTools };
+            }
+            history.push({ role: 'assistant', tool_calls: toolCalls });
+            for (const call of toolCalls) {
+                const name = call?.function?.name || 'unknown';
+                let args = {};
+                if (call?.function?.arguments) {
+                    try { args = JSON.parse(call.function.arguments); }
+                    catch (err) { console.warn('Failed to parse tool arguments', err); }
+                }
+                let result;
+                const handler = effectiveToolbox.get(name) || effectiveToolbox.get(name.toLowerCase?.() ?? name);
+                if (!handler) {
+                    result = { error: `Unhandled tool: ${name}` };
+                } else {
+                    try {
+                        result = await handler(args);
+                    } catch (err) {
+                        console.warn('Tool execution failed', err);
+                        result = { error: err?.message || 'Tool execution failed' };
+                    }
+                }
+                executedTools.push({ name, result });
+                let content;
+                if (result == null) {
+                    content = '';
+                } else if (typeof result === 'string') {
+                    content = result;
+                } else {
+                    try {
+                        content = JSON.stringify(result);
+                    } catch {
+                        content = JSON.stringify({ result: String(result) });
+                    }
+                }
+                history.push({
+                    role: 'tool',
+                    tool_call_id: call?.id || `call_${Math.random().toString(36).slice(2)}`,
+                    name,
+                    content
+                });
+            }
+        }
+
+        const finalData = await runOnce(history);
+        return { data: finalData, executedTools };
+    }
+
     function mergeCaps(currentCaps = {}, nextCaps = {}) {
         const merged = { ...currentCaps };
         if (nextCaps.image) merged.image = { ...(currentCaps.image || {}), ...nextCaps.image };
@@ -519,10 +671,13 @@ document.addEventListener("DOMContentLoaded", () => {
             return {};
         });
 
-    async function handleToolJson(raw, { imageUrls, audioUrls }, messageObj = null) {
+    async function handleToolJson(raw, { imageUrls, audioUrls }, messageObj = null, options = {}) {
+        const { allowToolCalls = true, executedTools = [] } = options || {};
         const textFromSpecs = [];
-        let handled = false;
+        let handled = Array.isArray(executedTools) && executedTools.length > 0;
         const structured = { images: [], audio: [], ui: [], voice: [] };
+        if (!Array.isArray(imageUrls)) imageUrls = [];
+        if (!Array.isArray(audioUrls)) audioUrls = [];
 
         const tryParseJson = (value) => {
             if (typeof value !== 'string') return null;
@@ -617,6 +772,46 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             return normalized;
         };
+
+        if (Array.isArray(executedTools) && executedTools.length) {
+            for (const entry of executedTools) {
+                if (!entry) continue;
+                const canonical = mapToolName(entry.name);
+                if (!canonical) continue;
+                const result = entry.result;
+                if (canonical === 'image') {
+                    const urlCandidate = typeof result === 'string'
+                        ? result
+                        : result?.imageUrl || result?.url;
+                    if (urlCandidate) {
+                        const finalUrl = applyPollinationsAuth(urlCandidate);
+                        if (finalUrl) {
+                            if (!imageUrls.includes(finalUrl)) imageUrls.push(finalUrl);
+                            structured.images.push(finalUrl);
+                        }
+                    }
+                } else if (canonical === 'tts') {
+                    const audioCandidate = typeof result === 'string'
+                        ? result
+                        : result?.audioUrl || result?.url;
+                    if (audioCandidate) {
+                        if (!audioUrls.includes(audioCandidate)) audioUrls.push(audioCandidate);
+                        structured.audio.push(audioCandidate);
+                    }
+                } else if (canonical === 'ui') {
+                    if (result && typeof result === 'object' && Object.keys(result).length) {
+                        structured.ui.push(result);
+                    }
+                } else if (canonical === 'voice') {
+                    const voiceText = typeof result === 'string'
+                        ? result
+                        : result?.text || result?.message || result?.say;
+                    if (voiceText) {
+                        structured.voice.push(voiceText);
+                    }
+                }
+            }
+        }
 
         const executeTool = async (name, rawArgs = {}, original = null) => {
             const canonical = mapToolName(name);
@@ -934,7 +1129,7 @@ document.addEventListener("DOMContentLoaded", () => {
             leftoverText = cleanedSegments.join('');
         }
 
-        if (Array.isArray(messageObj?.tool_calls)) {
+        if (allowToolCalls && Array.isArray(messageObj?.tool_calls)) {
             let offset = -1;
             for (const call of messageObj.tool_calls) {
                 instructions.push({ start: offset, value: { toolCall: call } });
@@ -1264,13 +1459,39 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
+            const { polliLib, client } = await ensurePollinationsClient();
             const capsInfo = capabilities?.text?.[model];
-            const chatParams = { model, messages };
-            if (capsInfo?.tools) {
-                chatParams.tools = toolDefinitions;
-                chatParams.json = true;
+            const toolSupport = !!(capsInfo?.tools && (capsInfo.tools === true || (typeof capsInfo.tools === 'object' && Object.keys(capsInfo.tools).length > 0)));
+            const baseChatPayload = { model, messages };
+            if (toolSupport) {
+                baseChatPayload.tools = toolDefinitions;
+                baseChatPayload.tool_choice = 'auto';
             }
-            const data = await (window.polliLib?.chat?.(chatParams) ?? Promise.reject(new Error('polliLib not loaded')));
+            if (shouldRequestJsonResponse(capsInfo)) {
+                baseChatPayload.response_format = { type: 'json_object' };
+            }
+
+            const runOptions = { polliLib, client, toolbox: toolSupport ? toolbox : null };
+            let executedTools = [];
+            let data;
+
+            try {
+                const result = await executeChatWithTools(baseChatPayload, runOptions);
+                data = result.data;
+                executedTools = result.executedTools || [];
+            } catch (firstErr) {
+                if (baseChatPayload.response_format) {
+                    console.warn('response_format chat failed, retrying without JSON mode', firstErr);
+                    const retryPayload = { ...baseChatPayload };
+                    delete retryPayload.response_format;
+                    const retryResult = await executeChatWithTools(retryPayload, runOptions);
+                    data = retryResult.data;
+                    executedTools = retryResult.executedTools || [];
+                } else {
+                    throw firstErr;
+                }
+            }
+
             loadingDiv.remove();
 
             const messageObj = data?.choices?.[0]?.message || {};
@@ -1295,7 +1516,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 aiContent = messageObj.content || "";
             }
 
-            const toolRes = await handleToolJson(aiContent, { imageUrls, audioUrls }, messageObj);
+            const toolRes = await handleToolJson(aiContent, { imageUrls, audioUrls }, messageObj, {
+                allowToolCalls: executedTools.length === 0,
+                executedTools
+            });
             const structuredOutputs = toolRes.structured || {};
             aiContent = toolRes.text;
 
