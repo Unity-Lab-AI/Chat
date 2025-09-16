@@ -94,20 +94,80 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let capabilities = window.pollinationsCaps || null;
 
-    async function ensureCapabilities() {
-        if (!capabilities && window.polliLib?.modelCapabilities) {
+    const waitFor = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function resolvePolliLib(timeoutMs = 10000) {
+        if (typeof window.awaitPolliLib === 'function') {
             try {
-                capabilities = await window.polliLib.modelCapabilities();
-                window.pollinationsCaps = capabilities;
-            } catch (e) {
-                console.warn('capabilities fetch failed', e);
-                capabilities = {};
+                return await window.awaitPolliLib({ timeoutMs });
+            } catch (err) {
+                console.warn('awaitPolliLib failed in chat-core, falling back to polling', err);
             }
+        }
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            if (window.polliLib && (typeof window.polliLib.modelCapabilities === 'function' || typeof window.polliLib.textModels === 'function')) {
+                return window.polliLib;
+            }
+            await waitFor(100);
+        }
+        throw new Error('polliLib not ready');
+    }
+
+    function mergeCaps(currentCaps = {}, nextCaps = {}) {
+        const merged = { ...currentCaps };
+        if (nextCaps.image) merged.image = { ...(currentCaps.image || {}), ...nextCaps.image };
+        if (nextCaps.text) merged.text = { ...(currentCaps.text || {}), ...nextCaps.text };
+        if (nextCaps.audio) merged.audio = { ...(currentCaps.audio || {}), ...nextCaps.audio };
+        if (nextCaps.tools) merged.tools = { ...(currentCaps.tools || {}), ...nextCaps.tools };
+        return merged;
+    }
+
+    async function ensureCapabilities() {
+        if (capabilities && Object.keys(capabilities).length) return;
+        if (window.pollinationsCaps && Object.keys(window.pollinationsCaps).length) {
+            capabilities = window.pollinationsCaps;
+            return;
+        }
+        try {
+            const polliLib = await resolvePolliLib();
+            const client = window.polliClient || undefined;
+            let caps;
+            try {
+                caps = await polliLib.modelCapabilities(client);
+            } catch (capErr) {
+                console.warn('modelCapabilities fetch failed in chat-core, attempting textModels fallback', capErr);
+                if (typeof polliLib.textModels !== 'function') {
+                    throw capErr;
+                }
+                const textList = await polliLib.textModels(client);
+                const textArray = Array.isArray(textList) ? textList : Object.values(textList || {});
+                const textCaps = {};
+                for (const info of textArray) {
+                    if (!info || typeof info !== 'object') continue;
+                    const modelName = info.name || info.id;
+                    if (!modelName) continue;
+                    textCaps[modelName] = { ...(info || {}) };
+                }
+                if (Object.keys(textCaps).length === 0) {
+                    throw capErr;
+                }
+                caps = { text: textCaps };
+            }
+            window.pollinationsCaps = mergeCaps(window.pollinationsCaps, caps);
+            capabilities = window.pollinationsCaps;
+        } catch (e) {
+            console.warn('capabilities fetch failed', e);
+            capabilities = window.pollinationsCaps || capabilities || {};
         }
     }
 
     function applyCapabilities(model) {
-        const info = capabilities?.text?.[model] || {};
+        if (window.pollinationsCaps && window.pollinationsCaps !== capabilities) {
+            capabilities = window.pollinationsCaps;
+        }
+        const sourceCaps = capabilities || window.pollinationsCaps || {};
+        const info = sourceCaps?.text?.[model] || {};
         const hasAudio = !!info.audio;
         if (voiceToggleBtn) voiceToggleBtn.disabled = !hasAudio;
         if (voiceInputBtn) voiceInputBtn.disabled = !hasAudio;

@@ -1,7 +1,21 @@
 // Configure polliLib default client and expose an explicit client for MCP helpers
 (function(){
-  try {
-    if (window.polliLib) {
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  async function waitForPolliLib({ timeoutMs = 10000, intervalMs = 75 } = {}) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (window.polliLib && typeof window.polliLib.modelCapabilities === 'function') {
+        return window.polliLib;
+      }
+      await sleep(intervalMs);
+    }
+    throw new Error('polliLib not loaded');
+  }
+
+  const polliLibReadyPromise = (async () => {
+    const polliLib = await waitForPolliLib();
+    try {
       // Derive base referrer from attribute or window location (no path segments)
       const cur = document.currentScript;
       const attrRef = cur && cur.getAttribute('data-referrer');
@@ -11,11 +25,11 @@
         try { base = new URL(attrRef, window.location.origin).origin; } catch {}
       }
       const referrer = base.endsWith('/') ? base : base + '/';
-      window.polliLib.configure({ referrer });
+      polliLib.configure({ referrer });
 
-      const defaultClient = typeof window.polliLib.getDefaultClient === 'function'
-        ? window.polliLib.getDefaultClient()
-        : new window.polliLib.PolliClientWeb({ referrer });
+      const defaultClient = typeof polliLib.getDefaultClient === 'function'
+        ? polliLib.getDefaultClient()
+        : new polliLib.PolliClientWeb({ referrer });
 
       const token = typeof window !== 'undefined'
         ? (window.POLLINATIONS_TOKEN || null)
@@ -97,9 +111,9 @@
         }
       }
 
-      if (typeof window.polliLib.image === 'function') {
-        const originalImage = window.polliLib.image.bind(window.polliLib);
-        window.polliLib.image = async function patchedImage(prompt, opts, client) {
+      if (typeof polliLib.image === 'function') {
+        const originalImage = polliLib.image.bind(polliLib);
+        polliLib.image = async function patchedImage(prompt, opts, client) {
           const result = await originalImage(prompt, opts, client);
           if (result && typeof result === 'object' && !('arrayBuffer' in result)) {
             if ('url' in result && result.url) {
@@ -110,9 +124,9 @@
         };
       }
 
-      if (window.polliLib?.mcp?.generateImageUrl) {
-        const originalGenerateImageUrl = window.polliLib.mcp.generateImageUrl.bind(window.polliLib.mcp);
-        window.polliLib.mcp.generateImageUrl = function patchedGenerateImageUrl(client, params = {}) {
+      if (polliLib?.mcp?.generateImageUrl) {
+        const originalGenerateImageUrl = polliLib.mcp.generateImageUrl.bind(polliLib.mcp);
+        polliLib.mcp.generateImageUrl = function patchedGenerateImageUrl(client, params = {}) {
           const payload = { ...(params || {}) };
           if (token && payload.token == null) payload.token = token;
           if (referrer && payload.referrer == null) payload.referrer = referrer;
@@ -153,6 +167,19 @@
           { pattern: /```video\n([\s\S]*?)\n```/i, group: 1 },
         ];
       }
+    } catch (e) {
+      console.warn('polliLib configure failed', e);
     }
-  } catch (e) { console.warn('polliLib configure failed', e); }
+    return polliLib;
+  })();
+
+  window.polliLibReady = polliLibReadyPromise;
+  window.awaitPolliLib = function awaitPolliLib(options = {}) {
+    if (options && (options.timeoutMs != null || options.intervalMs != null)) {
+      return waitForPolliLib(options);
+    }
+    return polliLibReadyPromise;
+  };
+
+  polliLibReadyPromise.catch(err => console.warn('polliLib failed to initialize', err));
 })();
